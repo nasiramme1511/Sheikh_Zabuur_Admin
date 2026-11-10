@@ -1,0 +1,144 @@
+// ==============================================================================
+// Sheikh Zabuur Admin Dashboard — Foundational Database Schema
+// ==============================================================================
+// Phase 1: Identity, RBAC, Sessions, Audit Logging, and System Settings
+// Target Engine: PostgreSQL 14+ (Hosted on Neon / Local PostgreSQL)
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------------------
+// Role-Based Access Control (RBAC)
+// ------------------------------------------------------------------------------
+
+model AdminRole {
+  id              String           @id // Canonical key: "SUPER_ADMIN", "CONTENT_MANAGER", "EDITOR", "VIEWER"
+  name            String           @unique
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  users           AdminUser[]
+  rolePermissions RolePermission[]
+
+  @@map("admin_roles")
+}
+
+model Permission {
+  id              String           @id // Canonical key: e.g. "catalog:publish", "tracks:write"
+  name            String           @unique
+  description     String?
+  module          String           // Grouping: "AUTH", "CATALOG", "MEDIA", "USERS", "SYSTEM"
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+
+  role         AdminRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ------------------------------------------------------------------------------
+// Administrator User Accounts & Sessions
+// ------------------------------------------------------------------------------
+
+model AdminUser {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  passwordHash        String
+  name                String
+  roleId              String
+  isActive            Boolean        @default(true)
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  role                AdminRole      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions            AdminSession[]
+  auditLogs           AuditLog[]
+
+  @@index([roleId])
+  @@index([isActive])
+  @@index([email])
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id               String    @id @default(uuid())
+  userId           String
+  sessionTokenHash String    @unique // SHA-256 hash of the secure cookie session token
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+// ------------------------------------------------------------------------------
+// Audit Trail & Tamper-Evident System Logs
+// ------------------------------------------------------------------------------
+
+model AuditLog {
+  id          String     @id @default(uuid())
+  adminUserId String?
+  action      String     // e.g. "AUTH_LOGIN", "TRACK_CREATE", "CATALOG_PUBLISH"
+  entityType  String     // e.g. "AdminUser", "AudioTrack", "CatalogRelease"
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([adminUserId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ------------------------------------------------------------------------------
+// System Settings & Feature Configuration
+// ------------------------------------------------------------------------------
+
+model SystemSetting {
+  key         String   @id // Key identifier: e.g. "maintenance_mode", "min_mobile_version"
+  value       String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
