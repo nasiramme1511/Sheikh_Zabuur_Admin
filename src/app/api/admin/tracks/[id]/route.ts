@@ -126,3 +126,4 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update track' }, { status: 500 });
   }
 }
+

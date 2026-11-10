@@ -213,7 +213,7 @@ export default function DashboardPage() {
           Master Implementation Roadmap
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="p-4 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20">
             <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
               <span>Phase 1 — Foundation</span>
@@ -251,6 +251,26 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
               Searchable audio library, module/category tree, metadata editor, and audio preview player.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
+              <span>Phase 5 — Cloud Audio Upload</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
+              Direct-to-cloud presigned S3/R2 uploads, client audio inspection, and atomic draft creation.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
+              <span>Phase 6 — Catalog Publishing</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">UP NEXT</span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
+              Atomic catalog compiler, semver versioning, R2 deployment, and instant mobile rollback.
             </p>
           </div>
         </div>

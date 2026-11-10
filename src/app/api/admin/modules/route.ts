@@ -36,3 +36,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch modules' }, { status: 500 });
   }
 }
+

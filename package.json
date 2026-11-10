@@ -20,6 +20,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1166.0",
+    "@aws-sdk/s3-request-presigner": "^3.1166.0",
     "@prisma/client": "^6.3.1",
     "@tanstack/react-table": "^9.3.1",
     "argon2": "^0.45.2",

@@ -147,3 +147,4 @@ With the content viewing and editing foundations complete, the platform is ready
 2. Client-side direct-to-cloud upload center with chunked progress reporting.
 3. Server-side audio metadata extraction (`music-metadata`) for exact duration and bitrate verification.
 4. Automatic draft track creation upon upload completion.
+

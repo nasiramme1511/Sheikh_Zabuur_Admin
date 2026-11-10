@@ -1,23 +1,23 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import {
+  Bell,
+  ClipboardList,
+  FolderTree,
+  Layers,
   LayoutDashboard,
   Music,
-  FolderTree,
+  Send,
+  Settings,
+  ShieldAlert,
+  Sparkles,
   Tags,
   UploadCloud,
-  Layers,
-  Bell,
-  Send,
   Users,
-  ShieldAlert,
-  ClipboardList,
-  Settings,
-  Sparkles,
 } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React from 'react';
 
 interface NavItem {
   name: string;
@@ -67,7 +67,7 @@ export function AdminSidebar() {
 
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
-          const isAvailable = item.phase <= 4;
+          const isAvailable = item.phase <= 5;
           const Icon = item.icon;
 
           return (
@@ -110,12 +110,12 @@ export function AdminSidebar() {
         <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 p-3 border border-emerald-100 dark:border-emerald-900/50">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              Phase 4 Active
+              Phase 5 Active
             </span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 leading-normal">
-            Content Library & Audio Player Live
+            Direct Cloud Upload & R2 Storage Live
           </p>
         </div>
       </div>
