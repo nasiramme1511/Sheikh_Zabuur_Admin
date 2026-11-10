@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   Music,
+  AlertCircle,
 } from 'lucide-react';
 
 export function AudioPreviewPlayer() {
@@ -24,11 +25,13 @@ export function AudioPreviewPlayer() {
     volume,
     playbackRate,
     isLoading,
+    playbackError,
     togglePlay,
     seek,
     skip,
     setVolume,
     setPlaybackRate,
+    clearPlaybackError,
     closePlayer,
   } = useAudioPlayer();
 
@@ -63,6 +66,22 @@ export function AudioPreviewPlayer() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 dark:bg-slate-950/95 text-white border-t border-slate-800 shadow-2xl backdrop-blur-md transition-all animate-in slide-in-from-bottom duration-200">
+      {/* Playback Error Notice Banner */}
+      {playbackError && (
+        <div className="bg-amber-950/90 border-b border-amber-800/80 px-4 py-1.5 text-center text-xs text-amber-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 mx-auto">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>{playbackError}</span>
+          </div>
+          <button
+            onClick={clearPlaybackError}
+            className="text-amber-400 hover:text-white underline text-[11px] shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Interactive Progress Bar across top of player */}
       <div
         className="w-full h-1.5 bg-slate-800 hover:h-2.5 transition-all cursor-pointer relative group"
@@ -206,4 +225,3 @@ export function AudioPreviewPlayer() {
     </div>
   );
 }
-

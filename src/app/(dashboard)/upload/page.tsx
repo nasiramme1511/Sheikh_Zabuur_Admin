@@ -503,13 +503,31 @@ export default function UploadPage() {
                   {/* Status / Actions */}
                   <div className="flex items-center gap-2 self-end md:self-auto">
                     {item.status === 'idle' && (
-                      <button
-                        onClick={() => uploadSingleFile(item)}
-                        disabled={isUploadingAll}
-                        className="px-3 py-1 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors"
-                      >
-                        Upload
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            playTrack({
+                              id: item.id,
+                              title: item.title,
+                              amharicTitle: item.amharicTitle,
+                              remoteUrl: '',
+                              localBlobUrl: URL.createObjectURL(item.file),
+                              duration: item.duration,
+                            })
+                          }
+                          className="p-1.5 rounded-md text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                          title="Preview audio before uploading"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                        <button
+                          onClick={() => uploadSingleFile(item)}
+                          disabled={isUploadingAll}
+                          className="px-3 py-1 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors"
+                        >
+                          Upload
+                        </button>
+                      </div>
                     )}
 
                     {item.status === 'done' && (
@@ -527,6 +545,7 @@ export default function UploadPage() {
                                 title: item.title,
                                 amharicTitle: item.amharicTitle,
                                 remoteUrl: item.uploadedTrack!.remoteUrl,
+                                localBlobUrl: URL.createObjectURL(item.file),
                                 duration: item.duration,
                               })
                             }

@@ -9,6 +9,7 @@ export interface ActiveTrack {
   moduleTitle?: string;
   categoryTitle?: string;
   remoteUrl: string;
+  localBlobUrl?: string;
   duration: number;
 }
 
@@ -20,12 +21,14 @@ interface AudioPlayerContextType {
   volume: number;
   playbackRate: number;
   isLoading: boolean;
+  playbackError: string | null;
   playTrack: (track: ActiveTrack) => void;
   togglePlay: () => void;
   seek: (timeInSeconds: number) => void;
   skip: (deltaSeconds: number) => void;
   setVolume: (v: number) => void;
   setPlaybackRate: (rate: number) => void;
+  clearPlaybackError: () => void;
   closePlayer: () => void;
 }
 
@@ -39,6 +42,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [volume, setVolumeState] = useState(1);
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -55,10 +59,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const onLoadedMetadata = () => {
       setDuration(audio.duration || 0);
       setIsLoading(false);
+      setPlaybackError(null);
     };
 
     const onWaiting = () => setIsLoading(true);
-    const onCanPlay = () => setIsLoading(false);
+    const onCanPlay = () => {
+      setIsLoading(false);
+      setPlaybackError(null);
+    };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
@@ -69,7 +77,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const onError = () => {
       setIsLoading(false);
       setIsPlaying(false);
-      console.warn('[AudioPlayer] Error playing audio source');
+      console.warn('[AudioPlayer] Audio resource failed to load (e.g. unconfigured dev CDN URL)');
+      setPlaybackError(
+        'Unable to load audio resource. In dev simulation mode, newly uploaded files require configured cloud storage or local file preview.'
+      );
     };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
@@ -98,24 +109,41 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!audioRef.current) return;
     const audio = audioRef.current;
 
+    // Toggle if same track clicked
     if (currentTrack?.id === track.id) {
       if (audio.paused) {
-        audio.play().catch(console.error);
+        setPlaybackError(null);
+        audio.play().catch((err: unknown) => {
+          console.warn('[AudioPlayer] resume failed gracefully:', err);
+          setPlaybackError('Unable to resume playback of this audio track.');
+        });
       } else {
         audio.pause();
       }
       return;
     }
 
+    setPlaybackError(null);
     setCurrentTrack(track);
     setIsLoading(true);
-    audio.src = track.remoteUrl;
+
+    // Prefer local in-memory blob for staged/just-uploaded files if available
+    const audioSource = track.localBlobUrl || track.remoteUrl;
+    audio.src = audioSource;
     audio.currentTime = 0;
     audio.playbackRate = playbackRate;
     audio.volume = volume;
-    audio.play().catch((err) => {
-      console.error('[AudioPlayer] play failed:', err);
+
+    audio.play().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[AudioPlayer] Playback was not supported or failed gracefully:', msg);
       setIsLoading(false);
+      setIsPlaying(false);
+      setPlaybackError(
+        track.remoteUrl.includes('cdn.sheikhzabur.com')
+          ? 'Cloud storage is currently in Dev Simulation Mode. Set Cloudflare R2 credentials or STORAGE_PUBLIC_BASE_URL in .env to stream uploaded files.'
+          : 'Unable to stream audio track from remote server.'
+      );
     });
   }, [currentTrack?.id, playbackRate, volume]);
 
@@ -124,7 +152,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play().catch(console.error);
+      setPlaybackError(null);
+      audioRef.current.play().catch((err: unknown) => {
+        console.warn('[AudioPlayer] Playback failed gracefully:', err);
+        setPlaybackError('Unable to stream this audio track.');
+      });
     }
   }, [currentTrack, isPlaying]);
 
@@ -156,6 +188,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  const clearPlaybackError = useCallback(() => {
+    setPlaybackError(null);
+  }, []);
+
   const closePlayer = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -165,6 +201,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    setPlaybackError(null);
   }, []);
 
   return (
@@ -177,12 +214,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         volume,
         playbackRate,
         isLoading,
+        playbackError,
         playTrack,
         togglePlay,
         seek,
         skip,
         setVolume,
         setPlaybackRate,
+        clearPlaybackError,
         closePlayer,
       }}
     >
@@ -191,11 +230,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   );
 }
 
-export function useAudioPlayer() {
+export function useAudioPlayer(): AudioPlayerContextType {
   const context = useContext(AudioPlayerContext);
   if (!context) {
     throw new Error('useAudioPlayer must be used within an AudioPlayerProvider');
   }
   return context;
 }
-
