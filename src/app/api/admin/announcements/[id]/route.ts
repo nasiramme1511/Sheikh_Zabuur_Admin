@@ -133,3 +133,4 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to delete announcement' }, { status: 500 });
   }
 }
+
