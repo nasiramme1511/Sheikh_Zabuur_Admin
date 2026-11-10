@@ -80,6 +80,8 @@ model AdminUser {
   sessions            AdminSession[]
   auditLogs           AuditLog[]
   releases            CatalogRelease[]
+  announcements       Announcement[]
+  broadcasts          PushNotificationBroadcast[]
 
   @@index([roleId])
   @@index([isActive])
@@ -253,3 +255,78 @@ model CatalogRelease {
 
   @@map("catalog_releases")
 }
+
+// ------------------------------------------------------------------------------
+// In-App Announcements & System Banners
+// ------------------------------------------------------------------------------
+
+model Announcement {
+  id             String     @id @default(uuid())
+  title          String
+  amharicTitle   String?
+  content        String
+  amharicContent String?
+  type           String     @default("info") // "info", "warning", "maintenance", "new_content"
+  priority       Int        @default(0) // Higher values displayed first
+  isActive       Boolean    @default(true)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  actionUrl      String?
+  actionLabel    String?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  createdBy      AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([startsAt])
+  @@index([expiresAt])
+  @@map("announcements")
+}
+
+// ------------------------------------------------------------------------------
+// Push Notifications & Device Registrations
+// ------------------------------------------------------------------------------
+
+model PushDeviceToken {
+  id          String   @id @default(uuid())
+  token       String   @unique // ExponentPushToken[...] or native device token
+  platform    String   // "ios", "android", "web", "unknown"
+  appVersion  String?
+  deviceModel String?
+  locale      String?  @default("am")
+  isActive    Boolean  @default(true)
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([token])
+  @@index([platform])
+  @@index([isActive])
+  @@map("push_device_tokens")
+}
+
+model PushNotificationBroadcast {
+  id             String     @id @default(uuid())
+  title          String
+  body           String
+  data           Json?
+  targetAudience String     @default("all") // "all", "ios", "android"
+  status         String     @default("draft") // "draft", "sending", "sent", "failed"
+  totalTargeted  Int        @default(0)
+  totalSent      Int        @default(0)
+  totalFailed    Int        @default(0)
+  sentAt         DateTime?
+  errorMessage   String?
+  sentById       String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  sentBy         AdminUser? @relation(fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("push_notification_broadcasts")
+}
+

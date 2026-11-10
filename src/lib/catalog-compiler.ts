@@ -295,3 +295,4 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     },
   };
 }
+

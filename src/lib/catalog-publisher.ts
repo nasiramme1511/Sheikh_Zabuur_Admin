@@ -180,3 +180,4 @@ export async function rollbackCatalogArtifacts(targetVersion: string): Promise<b
 
   return true;
 }
+
