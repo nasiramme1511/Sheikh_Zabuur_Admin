@@ -11,10 +11,16 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "db:seed": "tsx prisma/seed.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
+    "argon2": "^0.45.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "15.1.7",
@@ -34,6 +40,7 @@
     "prettier": "^3.5.0",
     "prisma": "^6.3.1",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.3"
   }
 }

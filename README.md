@@ -124,3 +124,4 @@ Example response when database is connected:
 ## 7. License & Ownership
 
 Proprietary software for the Sheikh Zabuur Islamic Audio Library platform.
+
