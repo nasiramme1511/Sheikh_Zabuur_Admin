@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Activity, ShieldCheck, User, LogOut, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface AuthUserData {
   id: string;
@@ -15,7 +15,9 @@ interface AuthUserData {
 
 export function AdminHeader() {
   const router = useRouter();
-  const [healthStatus, setHealthStatus] = useState<'checking' | 'ok' | 'degraded' | 'error'>('checking');
+  const [healthStatus, setHealthStatus] = useState<'checking' | 'ok' | 'degraded' | 'error'>(
+    'checking'
+  );
   const [user, setUser] = useState<AuthUserData | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 

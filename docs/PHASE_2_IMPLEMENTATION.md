@@ -126,3 +126,4 @@ With database tables instantiated and authentication verified, Phase 3 will:
 1. Build `scripts/import-catalog.ts` reading the authoritative `src/data/catalog/catalog.json` (1,731 tracks, 8 modules, 100 categories) from `~/shekhZabur`.
 2. Execute dry-run schema validation.
 3. Transactionally insert all modules, categories, and audio recordings into PostgreSQL without altering existing track IDs.
+

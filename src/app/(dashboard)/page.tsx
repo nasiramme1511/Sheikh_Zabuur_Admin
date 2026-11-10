@@ -16,17 +16,17 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Platform Overview & System Foundation
+            Platform Overview & Content Repository
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Phase 2 Complete: Argon2id Authentication, Session Management, RBAC, and Audit Logging Active
+            Phase 3 Complete: 1,731 Verified Audio Recordings & 105 Categories Live in PostgreSQL
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            Phase 2 Active
+            Phase 3 Active
           </span>
         </div>
       </div>
@@ -193,13 +193,23 @@ export default function DashboardPage() {
             </p>
           </div>
 
+          <div className="p-4 rounded-md border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
+              <span>Phase 3 — Catalog Ingestion</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">COMPLETE</span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
+              Idempotent transactional import of all 1,731 audio tracks, 8 root modules, and 105 categories into Neon PostgreSQL.
+            </p>
+          </div>
+
           <div className="p-4 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
-              <span>Phase 3 — Catalog Ingestion</span>
+              <span>Phase 4 — Content Management UI</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">UP NEXT</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
-              Dry-run and transactional import of the verified 1,731 audio recordings and 100 categories into PostgreSQL.
+              Module & category tree, TanStack audio track table, search/filter, metadata editor, and audio preview player.
             </p>
           </div>
         </div>

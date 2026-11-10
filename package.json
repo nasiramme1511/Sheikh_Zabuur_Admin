@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "db:seed": "tsx prisma/seed.ts",
-    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts"
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
+    "catalog:import": "tsx scripts/import-catalog.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

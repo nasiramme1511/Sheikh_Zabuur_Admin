@@ -83,6 +83,10 @@ The admin platform maintains strict separation from the mobile repository (`nasi
 | `npm run format:check` | Verifies code formatting |
 | `npm run prisma:generate` | Generates Prisma Client from `prisma/schema.prisma` |
 | `npm run prisma:validate` | Validates Prisma schema integrity |
+| `npm run db:seed` | Seeds foundational RBAC roles and permissions |
+| `npm run admin:bootstrap` | Bootstraps initial Super Administrator via CLI |
+| `npm run catalog:import` | Ingests 1,731 audio tracks and 105 categories into PostgreSQL |
+| `npm run catalog:import -- --dry-run` | Validates catalog integrity without database changes |
 
 ---
 

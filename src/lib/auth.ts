@@ -156,3 +156,4 @@ export async function requirePermission(permissionId: string): Promise<Authentic
 
   return user;
 }
+

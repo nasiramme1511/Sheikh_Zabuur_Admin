@@ -1,7 +1,6 @@
 // ==============================================================================
-// Sheikh Zabuur Admin Dashboard — Foundational Database Schema
+// Sheikh Zabuur Admin Dashboard — Database Schema
 // ==============================================================================
-// Phase 1: Identity, RBAC, Sessions, Audit Logging, and System Settings
 // Target Engine: PostgreSQL 14+ (Hosted on Neon / Local PostgreSQL)
 // ==============================================================================
 
@@ -65,21 +64,22 @@ model RolePermission {
 // ------------------------------------------------------------------------------
 
 model AdminUser {
-  id                  String         @id @default(uuid())
-  email               String         @unique
+  id                  String           @id @default(uuid())
+  email               String           @unique
   passwordHash        String
   name                String
   roleId              String
-  isActive            Boolean        @default(true)
+  isActive            Boolean          @default(true)
   lastLoginAt         DateTime?
-  failedLoginAttempts Int            @default(0)
+  failedLoginAttempts Int              @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  role                AdminRole      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  role                AdminRole        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   sessions            AdminSession[]
   auditLogs           AuditLog[]
+  releases            CatalogRelease[]
 
   @@index([roleId])
   @@index([isActive])
@@ -143,3 +143,113 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+// ------------------------------------------------------------------------------
+// Content Hierarchy: Modules, Categories, and Tracks
+// ------------------------------------------------------------------------------
+
+model AudioModule {
+  id             String          @id // Canonical slug: "beyquna", "usul", "tafseer", etc.
+  title          String
+  amharicTitle   String?
+  arabicTitle    String?
+  description    String?
+  iconName       String?
+  order          Int             @default(0)
+  submoduleCount Int             @default(0)
+  totalTracks    Int             @default(0)
+  isActive       Boolean         @default(true)
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  categories     AudioCategory[]
+  tracks         AudioTrack[]
+
+  @@map("audio_modules")
+}
+
+model AudioCategory {
+  id           String          @id // Canonical slug: "usul-kitabul-tohid", "tajreed-juz-1", etc.
+  moduleId     String
+  parentId     String?         // Supports recursive subcategories (e.g. tajreed-juz-1)
+  title        String
+  amharicTitle String?
+  arabicTitle  String?
+  description  String?
+  order        Int             @default(0)
+  trackCount   Int             @default(0)
+  isActive     Boolean         @default(true)
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  module       AudioModule     @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  parent       AudioCategory?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Restrict)
+  children     AudioCategory[] @relation("Subcategories")
+  tracks       AudioTrack[]
+
+  @@index([moduleId])
+  @@index([parentId])
+  @@index([order])
+  @@map("audio_categories")
+}
+
+model AudioTrack {
+  id                String        @id // Canonical slug: "beyquna-001", "usul-kitabul-tohid-001", etc.
+  moduleId          String
+  categoryId        String
+  parentId          String        // Direct container identifier
+  trackNumber       Int
+  trackOrder        Int?
+  title             String
+  amharicTitle      String?
+  arabicTitle       String?
+  originalFilename  String?
+  relativePath      String?
+  storageKey        String?
+  remoteUrl         String
+  duration          Int           @default(0) // Duration in seconds
+  formattedDuration String?
+  fileSize          BigInt        @default(0) // Physical file size in bytes
+  formattedFileSize String?
+  format            String        @default("mp3")
+  downloadStatus    String        @default("none")
+  isPlaceholder     Boolean       @default(false)
+  isPublished       Boolean       @default(true)
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  module            AudioModule   @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  category          AudioCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([moduleId])
+  @@index([categoryId])
+  @@index([parentId])
+  @@index([trackNumber])
+  @@index([isPublished])
+  @@map("audio_tracks")
+}
+
+// ------------------------------------------------------------------------------
+// Catalog Releases & Publication Manifests
+// ------------------------------------------------------------------------------
+
+model CatalogRelease {
+  id              String      @id @default(uuid())
+  version         String      @unique // e.g. "2.0.0"
+  checksumMd5     String
+  totalModules    Int
+  totalCategories Int
+  totalTracks     Int
+  totalSizeBytes  BigInt
+  storageUrl      String?
+  releaseNotes    String?
+  status          String      @default("published") // "published", "rolled_back"
+  publishedById   String?
+  publishedAt     DateTime    @default(now())
+
+  publishedBy     AdminUser?  @relation(fields: [publishedById], references: [id])
+
+  @@map("catalog_releases")
+}
