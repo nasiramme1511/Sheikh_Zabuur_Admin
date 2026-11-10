@@ -72,3 +72,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to compute statistics' }, { status: 500 });
   }
 }
+
