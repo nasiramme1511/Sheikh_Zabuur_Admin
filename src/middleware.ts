@@ -5,6 +5,7 @@ const PUBLIC_PATHS = [
   '/login',
   '/api/health',
   '/api/admin/auth/login',
+  '/api/admin/uploads/mock',
   '/api/v1',
 ];
 

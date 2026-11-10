@@ -73,22 +73,25 @@ export async function createPresignedUploadUrl(
   const timestamp = Date.now();
   const storageKey = `audio/${options.moduleId}/${options.categoryId}/${timestamp}-${sanitized}`;
 
-  const publicBase = env.STORAGE_PUBLIC_BASE_URL
-    ? env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')
-    : 'https://cdn.sheikhzabur.com';
-
-  const remoteUrl = `${publicBase}/${storageKey}`;
-
-  // If storage credentials are not provided (e.g. dev mock), return simulated upload route
+  // If storage credentials are not provided (e.g. dev mock), return simulated upload route with local streaming URL
   if (!client || !env.STORAGE_BUCKET_NAME) {
+    const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const localRemoteUrl = `${appUrl}/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`;
+
     return {
       uploadUrl: `/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`,
       storageKey,
-      remoteUrl,
+      remoteUrl: localRemoteUrl,
       isSimulated: true,
       expiresIn: 3600,
     };
   }
+
+  const publicBase = env.STORAGE_PUBLIC_BASE_URL
+    ? env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')
+    : 'https://audio.sheikhzabur.com';
+
+  const remoteUrl = `${publicBase}/${storageKey}`;
 
   const command = new PutObjectCommand({
     Bucket: env.STORAGE_BUCKET_NAME,
