@@ -71,3 +71,4 @@ With the content upload pipeline operational, the platform is ready for **Phase 
 1. Implement the atomic `catalog-compiler.ts` to transform PostgreSQL records into the exact mobile catalog JSON schema.
 2. Generate SHA-256 integrity checksums and increment version manifests (`catalogVersion.json`).
 3. Atomic cloud deployment to Cloudflare R2 / S3 with rollback capability.
+

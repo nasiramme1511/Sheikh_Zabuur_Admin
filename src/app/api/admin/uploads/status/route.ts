@@ -23,3 +23,4 @@ export async function GET() {
     publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL || 'https://cdn.sheikhzabur.com',
   });
 }
+
