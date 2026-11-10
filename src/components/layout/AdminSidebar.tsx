@@ -1,45 +1,10 @@
 'use client';
 
-import {
-  Bell,
-  ClipboardList,
-  FolderTree,
-  Layers,
-  LayoutDashboard,
-  Music,
-  Send,
-  Settings,
-  ShieldAlert,
-  Sparkles,
-  Tags,
-  UploadCloud,
-  Users,
-} from 'lucide-react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import React from 'react';
-
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  phase: number;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard, phase: 1 },
-  { name: 'Audio Library', href: '/library', icon: Music, phase: 4 },
-  { name: 'Modules', href: '/modules', icon: FolderTree, phase: 4 },
-  { name: 'Categories', href: '/categories', icon: Tags, phase: 4 },
-  { name: 'Upload Center', href: '/upload', icon: UploadCloud, phase: 5 },
-  { name: 'Catalog Releases', href: '/releases', icon: Layers, phase: 6 },
-  { name: 'Announcements', href: '/announcements', icon: Bell, phase: 7 },
-  { name: 'Push Notifications', href: '/push', icon: Send, phase: 7 },
-  { name: 'Admin Users', href: '/users', icon: Users, phase: 2 },
-  { name: 'Roles & Permissions', href: '/roles', icon: ShieldAlert, phase: 2 },
-  { name: 'Audit Logs', href: '/audit', icon: ClipboardList, phase: 2 },
-  { name: 'System Settings', href: '/settings', icon: Settings, phase: 1 },
-];
+import { Sparkles } from 'lucide-react';
+import { APP_NAVIGATION, APP_METADATA } from '@/config/navigation';
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -53,9 +18,9 @@ export function AdminSidebar() {
         </div>
         <div>
           <h1 className="font-semibold text-sm leading-tight text-slate-900 dark:text-slate-100">
-            Sheikh Zabuur
+            {APP_METADATA.name}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Admin Platform</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{APP_METADATA.subtitle}</p>
         </div>
       </div>
 
@@ -65,7 +30,7 @@ export function AdminSidebar() {
           Content & Management
         </div>
 
-        {NAV_ITEMS.map((item) => {
+        {APP_NAVIGATION.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
 
@@ -94,17 +59,17 @@ export function AdminSidebar() {
         })}
       </nav>
 
-      {/* Footer Info */}
+      {/* Production Status Banner */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-800">
         <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 p-3 border border-emerald-100 dark:border-emerald-900/50">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              Phase 8 Active
+              System Ready
             </span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 leading-normal">
-            RBAC, Audit Trail & Settings Live
+            Production Platform Live • v{APP_METADATA.version}
           </p>
         </div>
       </div>

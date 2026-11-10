@@ -103,15 +103,18 @@ export async function POST(req: NextRequest) {
       const track = await tx.audioTrack.create({
         data: {
           id: trackId,
+          trackId: trackId,
           moduleId: data.moduleId,
           categoryId: data.categoryId,
           parentId: data.categoryId,
           trackNumber: trackNum,
           trackOrder,
+          sortOrder: trackOrder,
           title: data.title,
           amharicTitle: data.amharicTitle || null,
           arabicTitle: data.arabicTitle || null,
           duration: data.duration,
+          durationSeconds: data.duration,
           fileSize: BigInt(data.fileSize),
           originalFilename: data.originalFilename,
           storageKey: data.storageKey,

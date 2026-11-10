@@ -4,13 +4,15 @@ import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { TrackEditModal, AudioTrackItem } from '@/components/tracks/TrackEditModal';
 import { formatBytes, formatDuration } from '@/lib/serialize';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   Search,
   RefreshCw,
   Play,
   Pause,
   Edit2,
-  CheckCircle2,
   Music,
   ChevronLeft,
   ChevronRight,
@@ -141,18 +143,11 @@ export default function AudioLibraryPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-            <Music className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            Audio Library Management
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Browse, search, edit metadata, and audit 1,731 audio tracks across all 8 curriculum modules.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
+      <PageHeader
+        title="Audio Library Management"
+        description={`Browse, search, edit metadata, and audit ${totalTracks.toLocaleString()} audio tracks across all 8 curriculum modules.`}
+        icon={Music}
+        actions={
           <button
             onClick={() => fetchTracks()}
             disabled={isLoading}
@@ -162,8 +157,8 @@ export default function AudioLibraryPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filter Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
@@ -331,10 +326,12 @@ export default function AudioLibraryPage() {
                 </tr>
               ) : tracks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <FileQuestion className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-                    <p className="font-medium text-slate-600 dark:text-slate-400">No tracks found</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Try broadening your search or resetting filters.</p>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={FileQuestion}
+                      title="No tracks found"
+                      description="Try broadening your search or resetting filters."
+                    />
                   </td>
                 </tr>
               ) : (
@@ -391,16 +388,9 @@ export default function AudioLibraryPage() {
 
                       {/* Publication Status */}
                       <td className="py-3 px-4">
-                        {track.isPublished ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            Published
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            Draft
-                          </span>
-                        )}
+                        <StatusBadge
+                          status={track.isPublished ? 'published' : 'draft'}
+                        />
                       </td>
 
                       {/* Actions */}

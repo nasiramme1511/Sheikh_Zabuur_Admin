@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Layers,
@@ -8,35 +10,91 @@ import {
   CheckCircle2,
   ArrowRight,
   Volume2,
+  RefreshCw,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+
+interface PlatformStats {
+  tracks: {
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+  };
+  modules: {
+    total: number;
+  };
+  categories: {
+    total: number;
+  };
+  storage: {
+    totalSizeBytes: string;
+    formattedSize: string;
+    totalSeconds: number;
+    totalHours: string;
+  };
+  release: {
+    activeVersion: string;
+    publishedAt: string | null;
+  };
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  async function fetchStats() {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/stats');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch dynamic stats:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
   return (
     <div className="space-y-6">
-      {/* Page Title & Status Banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Platform Overview & Content Management
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Phase 4 Active: 1,731 Audio Recordings, 105 Categories, Full Metadata Editor & In-Browser Audio Player
-          </p>
-        </div>
+      {/* Dynamic Page Header */}
+      <PageHeader
+        title="Platform Overview & Content Management"
+        description="Comprehensive administration of the Sheikh Zabuur Islamic Audio Library mobile app catalog and media assets."
+        badge={
+          <StatusBadge
+            status="published"
+            label={stats ? `Active Release v${stats.release.activeVersion}` : 'Production Ready'}
+          />
+        }
+        actions={
+          <button
+            onClick={fetchStats}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        }
+      />
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            Phase 4 Complete
-          </span>
-        </div>
-      </div>
-
-      {/* Verified Mobile Catalog Targets */}
+      {/* Live Database Content Repository Metrics */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Live Database Content Repository
+            Authoritative Database Content Repository
           </h2>
           <Link
             href="/library"
@@ -48,73 +106,48 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link
+          <StatCard
+            label="Total Audio Tracks"
+            value={stats ? stats.tracks.total.toLocaleString() : '1,731+'}
+            subtext={
+              stats
+                ? `${stats.tracks.published.toLocaleString()} Published • ${stats.tracks.draft} Draft`
+                : 'Deterministic immutable IDs'
+            }
+            icon={Music}
+            color="emerald"
             href="/library"
-            className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-emerald-500/50 transition-all group"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Recordings</span>
-              <div className="w-8 h-8 rounded-md bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                <Music className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">1,731</div>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <span>Deterministic track IDs verified</span>
-                <ArrowRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </p>
-            </div>
-          </Link>
+          />
 
-          <Link
+          <StatCard
+            label="Curriculum Modules"
+            value={stats ? stats.modules.total : '8'}
+            subtext="Beyquna, Usul, Tafseer, Bulugh, etc."
+            icon={Layers}
+            color="blue"
             href="/modules"
-            className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-blue-500/50 transition-all group"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Root Modules</span>
-              <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
-                <Layers className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">8</div>
-              <p className="text-xs text-slate-500 mt-1">Beyquna, Usul, Tafseer, Bulugh, etc.</p>
-            </div>
-          </Link>
+          />
 
-          <Link
+          <StatCard
+            label="Active Categories"
+            value={stats ? stats.categories.total : '105'}
+            subtext="Hierarchical root & subcategories"
+            icon={FolderTree}
+            color="purple"
             href="/categories"
-            className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-purple-500/50 transition-all group"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Categories</span>
-              <div className="w-8 h-8 rounded-md bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform">
-                <FolderTree className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">105</div>
-              <p className="text-xs text-slate-500 mt-1">103 root + 2 nested subcategories</p>
-            </div>
-          </Link>
+          />
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Audio Size</span>
-              <div className="w-8 h-8 rounded-md bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <HardDrive className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">36.85 GB</div>
-              <p className="text-xs text-slate-500 mt-1">1,393.55 total audio hours</p>
-            </div>
-          </div>
+          <StatCard
+            label="Total Audio Size"
+            value={stats ? stats.storage.formattedSize : '36.85 GB'}
+            subtext={stats ? `${stats.storage.totalHours} total audio hours` : '1,393.55 audio hours'}
+            icon={HardDrive}
+            color="amber"
+          />
         </div>
       </div>
 
-      {/* Content Management Feature Highlights */}
+      {/* Feature Navigation Highlights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center gap-3">
@@ -123,7 +156,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Audio Library & Metadata Editor
+                Audio Library & Normalized Architecture
               </h3>
               <p className="text-xs text-slate-500">Live search, filtering, and instant updates</p>
             </div>
@@ -207,10 +240,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Implementation Roadmap Tracker */}
+      {/* Master Implementation Roadmap Tracker */}
       <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
-          Master Implementation Roadmap
+          Master Architecture & Implementation Roadmap
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -220,7 +253,7 @@ export default function DashboardPage() {
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
-              Next.js 15 App Shell, TypeScript, Tailwind, Prisma schema, and Zod env validator.
+              Next.js 15 App Shell, TypeScript Strict, Tailwind, Prisma schema, and Zod env validator.
             </p>
           </div>
 
@@ -230,7 +263,7 @@ export default function DashboardPage() {
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
-              Argon2id hashing, secure session management, RBAC, and Super Admin bootstrap.
+              Argon2id hashing, secure session management, RBAC matrix, and Super Admin bootstrap.
             </p>
           </div>
 
@@ -280,7 +313,7 @@ export default function DashboardPage() {
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
-              In-app announcements, push token registration, and Expo Push Notification broadcast.
+              In-app announcements, push token registration, and Expo Push Notification broadcaster.
             </p>
           </div>
 
@@ -300,7 +333,7 @@ export default function DashboardPage() {
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
-              Security audit, rate limiting, connection pooling, CI/CD pipeline, and Vercel production deployment.
+              Rate limiting, security headers, connection pooling, CI/CD pipeline, and Vercel readiness.
             </p>
           </div>
         </div>

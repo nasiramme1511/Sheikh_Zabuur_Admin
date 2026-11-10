@@ -104,21 +104,26 @@ export async function compileCatalog(version: string): Promise<CompilationResult
   const [modulesData, tracksData] = await Promise.all([
     prisma.audioModule.findMany({
       where: { isActive: true },
-      orderBy: { order: 'asc' },
+      orderBy: { sortOrder: 'asc' },
       include: {
         categories: {
           where: { isActive: true },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: 'asc' },
         },
       },
     }),
     prisma.audioTrack.findMany({
-      where: { isPublished: true },
+      where: { isPublished: true, archivedAt: null },
       orderBy: [
         { moduleId: 'asc' },
         { categoryId: 'asc' },
-        { trackNumber: 'asc' },
+        { sortOrder: 'asc' },
       ],
+      include: {
+        category: {
+          select: { moduleId: true },
+        },
+      },
     }),
   ]);
 
@@ -144,45 +149,51 @@ export async function compileCatalog(version: string): Promise<CompilationResult
   let totalSizeBytes = 0;
 
   const tracks: MobileTrack[] = tracksData.map((t) => {
+    const trackIdentifier = t.trackId || t.id;
+    const effectiveModuleId = t.moduleId || t.category?.moduleId || '';
+    const trackDuration = t.durationSeconds || t.duration || 0;
+    const trackNum = t.trackNumber ?? t.sortOrder ?? 0;
+    const trackTitle = t.title || '';
+
     // Duplicate check
-    if (trackIdSet.has(t.id)) {
-      errors.push(`Duplicate track identifier detected: ${t.id}`);
+    if (trackIdSet.has(trackIdentifier)) {
+      errors.push(`Duplicate track identifier detected: ${trackIdentifier}`);
     }
-    trackIdSet.add(t.id);
+    trackIdSet.add(trackIdentifier);
 
     // Foreign reference check
-    if (!moduleIdSet.has(t.moduleId)) {
-      errors.push(`Track ${t.id} references non-existent module ${t.moduleId}`);
+    if (!moduleIdSet.has(effectiveModuleId)) {
+      errors.push(`Track ${trackIdentifier} references non-existent module ${effectiveModuleId}`);
     }
     if (!categoryIdSet.has(t.categoryId)) {
-      errors.push(`Track ${t.id} references non-existent category ${t.categoryId}`);
+      errors.push(`Track ${trackIdentifier} references non-existent category ${t.categoryId}`);
     }
 
     if (!t.remoteUrl) {
-      errors.push(`Track ${t.id} is missing a remoteUrl`);
+      errors.push(`Track ${trackIdentifier} is missing a remoteUrl`);
     }
 
-    const sizeNum = Number(t.fileSize);
+    const sizeNum = Number(t.fileSize || 0);
     totalSizeBytes += sizeNum;
 
     return {
-      id: t.id,
-      moduleId: t.moduleId,
+      id: trackIdentifier,
+      moduleId: effectiveModuleId,
       categoryId: t.categoryId,
       parentId: t.parentId || t.categoryId,
-      title: t.title,
+      title: trackTitle,
       amharicTitle: t.amharicTitle || null,
       arabicTitle: t.arabicTitle || null,
       originalFilename: t.originalFilename || null,
       relativePath: t.relativePath || null,
       storageKey: t.storageKey || null,
-      remoteUrl: t.remoteUrl,
-      duration: t.duration,
-      formattedDuration: t.formattedDuration || formatDuration(t.duration),
+      remoteUrl: t.remoteUrl || '',
+      duration: trackDuration,
+      formattedDuration: t.formattedDuration || formatDuration(trackDuration),
       fileSize: sizeNum,
       formattedFileSize: t.formattedFileSize || formatBytes(sizeNum),
       format: t.format || 'mp3',
-      trackNumber: t.trackNumber,
+      trackNumber: trackNum,
       downloadStatus: t.downloadStatus || 'none',
       isPlaceholder: t.isPlaceholder || false,
       metadata: (t.metadata as Record<string, unknown>) || null,
@@ -213,23 +224,23 @@ export async function compileCatalog(version: string): Promise<CompilationResult
         id: c.id,
         moduleId: c.moduleId,
         parentId: c.parentId || null,
-        title: c.title,
+        title: c.name || c.title || c.id,
         amharicTitle: c.amharicTitle || null,
         arabicTitle: c.arabicTitle || null,
         description: c.description || null,
         trackCount: categoryTrackCountMap.get(c.id) || 0,
-        order: c.order,
+        order: c.sortOrder ?? c.order ?? 0,
       };
     });
 
     return {
       id: m.id,
-      title: m.title,
+      title: m.name || m.title || m.id,
       amharicTitle: m.amharicTitle || null,
       arabicTitle: m.arabicTitle || null,
       description: m.description || null,
-      order: m.order,
-      submoduleCount: m.submoduleCount,
+      order: m.sortOrder ?? m.order ?? 0,
+      submoduleCount: m.submoduleCount ?? cats.length,
       totalTracks: moduleTrackCountMap.get(m.id) || 0,
       categories: cats,
     };

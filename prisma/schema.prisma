@@ -18,11 +18,11 @@ datasource db {
 // ------------------------------------------------------------------------------
 
 model AdminRole {
-  id              String           @id // Canonical key: "SUPER_ADMIN", "CONTENT_MANAGER", "EDITOR", "VIEWER"
-  name            String           @unique
-  description     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id          String   @id // Canonical key: "SUPER_ADMIN", "CONTENT_MANAGER", "EDITOR", "VIEWER"
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   users           AdminUser[]
   rolePermissions RolePermission[]
@@ -31,12 +31,12 @@ model AdminRole {
 }
 
 model Permission {
-  id              String           @id // Canonical key: e.g. "catalog:publish", "tracks:write"
-  name            String           @unique
-  description     String?
-  module          String           // Grouping: "AUTH", "CATALOG", "MEDIA", "USERS", "SYSTEM"
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id          String   @id // Canonical key: e.g. "catalog:publish", "tracks:write"
+  name        String   @unique
+  description String?
+  module      String // Grouping: "AUTH", "CATALOG", "MEDIA", "USERS", "SYSTEM"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   rolePermissions RolePermission[]
 
@@ -45,13 +45,13 @@ model Permission {
 }
 
 model RolePermission {
-  id           String     @id @default(uuid())
+  id           String   @id @default(uuid())
   roleId       String
   permissionId String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
-  role         AdminRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       AdminRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@index([roleId])
@@ -64,24 +64,25 @@ model RolePermission {
 // ------------------------------------------------------------------------------
 
 model AdminUser {
-  id                  String           @id @default(uuid())
-  email               String           @unique
+  id                  String    @id @default(uuid())
+  email               String    @unique
   passwordHash        String
   name                String
   roleId              String
-  isActive            Boolean          @default(true)
+  isActive            Boolean   @default(true)
   lastLoginAt         DateTime?
-  failedLoginAttempts Int              @default(0)
+  failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  role                AdminRole        @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  sessions            AdminSession[]
-  auditLogs           AuditLog[]
-  releases            CatalogRelease[]
-  announcements       Announcement[]
-  broadcasts          PushNotificationBroadcast[]
+  role                 AdminRole                   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions             AdminSession[]
+  auditLogs            AuditLog[]
+  releases             CatalogRelease[]
+  announcements        Announcement[]
+  broadcasts           PushNotificationBroadcast[]
+  createdAssetVersions AudioAssetVersion[]
 
   @@index([roleId])
   @@index([isActive])
@@ -90,16 +91,16 @@ model AdminUser {
 }
 
 model AdminSession {
-  id               String    @id @default(uuid())
+  id               String   @id @default(uuid())
   userId           String
-  sessionTokenHash String    @unique // SHA-256 hash of the secure cookie session token
+  sessionTokenHash String   @unique // SHA-256 hash of the secure cookie session token
   ipAddress        String?
   userAgent        String?
   expiresAt        DateTime
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  user             AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -111,17 +112,17 @@ model AdminSession {
 // ------------------------------------------------------------------------------
 
 model AuditLog {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   adminUserId String?
-  action      String     // e.g. "AUTH_LOGIN", "TRACK_CREATE", "CATALOG_PUBLISH"
-  entityType  String     // e.g. "AdminUser", "AudioTrack", "CatalogRelease"
+  action      String // e.g. "AUTH_LOGIN", "TRACK_CREATE", "CATALOG_PUBLISH"
+  entityType  String // e.g. "AdminUser", "AudioTrack", "CatalogRelease"
   entityId    String?
   details     Json?
   ipAddress   String?
   userAgent   String?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime @default(now())
 
-  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
 
   @@index([adminUserId])
   @@index([action])
@@ -146,91 +147,179 @@ model SystemSetting {
 }
 
 // ------------------------------------------------------------------------------
-// Content Hierarchy: Modules, Categories, and Tracks
+// Production Audio Library: Modules, Categories, Tracks, Assets, and Media
 // ------------------------------------------------------------------------------
 
 model AudioModule {
-  id             String          @id // Canonical slug: "beyquna", "usul", "tafseer", etc.
-  title          String
-  amharicTitle   String?
-  arabicTitle    String?
+  id             String   @id @default(uuid())
+  slug           String   @unique // Canonical unique slug: "beyquna", "usul", "tafseer", etc.
+  name           String // Display name: e.g. "Beyquna"
+  title          String? // Legacy alias
+  amharicTitle   String? // Multilingual localized title
+  arabicTitle    String? // Arabic script title
   description    String?
   iconName       String?
-  order          Int             @default(0)
-  submoduleCount Int             @default(0)
-  totalTracks    Int             @default(0)
-  isActive       Boolean         @default(true)
+  sortOrder      Int      @default(0)
+  order          Int? // Legacy alias
+  submoduleCount Int      @default(0)
+  totalTracks    Int      @default(0)
+  isActive       Boolean  @default(true)
   metadata       Json?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  categories     AudioCategory[]
-  tracks         AudioTrack[]
+  categories AudioCategory[]
+  tracks     AudioTrack[]
 
+  @@index([sortOrder])
+  @@index([isActive])
   @@map("audio_modules")
 }
 
 model AudioCategory {
-  id           String          @id // Canonical slug: "usul-kitabul-tohid", "tajreed-juz-1", etc.
+  id           String   @id @default(uuid())
   moduleId     String
-  parentId     String?         // Supports recursive subcategories (e.g. tajreed-juz-1)
-  title        String
-  amharicTitle String?
-  arabicTitle  String?
+  parentId     String? // Supports recursive subcategories (e.g. tajreed-juz-1)
+  slug         String // Category slug unique within module
+  name         String // Display name: e.g. "Kitabul Tawhid"
+  title        String? // Legacy alias
+  amharicTitle String? // Multilingual localized title
+  arabicTitle  String? // Arabic script title
   description  String?
-  order        Int             @default(0)
-  trackCount   Int             @default(0)
-  isActive     Boolean         @default(true)
+  sortOrder    Int      @default(0)
+  order        Int? // Legacy alias
+  trackCount   Int      @default(0)
+  isActive     Boolean  @default(true)
   metadata     Json?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  module       AudioModule     @relation(fields: [moduleId], references: [id], onDelete: Restrict)
-  parent       AudioCategory?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Restrict)
-  children     AudioCategory[] @relation("Subcategories")
-  tracks       AudioTrack[]
+  module   AudioModule     @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  parent   AudioCategory?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Restrict)
+  children AudioCategory[] @relation("Subcategories")
+  tracks   AudioTrack[]
 
+  @@unique([moduleId, slug])
   @@index([moduleId])
   @@index([parentId])
-  @@index([order])
+  @@index([sortOrder])
   @@map("audio_categories")
 }
 
 model AudioTrack {
-  id                String        @id // Canonical slug: "beyquna-001", "usul-kitabul-tohid-001", etc.
-  moduleId          String
-  categoryId        String
-  parentId          String        // Direct container identifier
-  trackNumber       Int
+  id              String    @id @default(uuid())
+  trackId         String    @unique // Canonical immutable mobile identifier: "beyquna-001", etc.
+  categoryId      String
+  title           String
+  description     String?
+  durationSeconds Int       @default(0) // Verified duration in seconds
+  sortOrder       Int       @default(0) // Unique ordering within category
+  isPublished     Boolean   @default(true)
+  archivedAt      DateTime? // Soft deletion timestamp; preserves mobile offline contract
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Transitional legacy compatibility fields
+  moduleId          String?
+  parentId          String? // Direct container identifier
+  trackNumber       Int?
   trackOrder        Int?
-  title             String
   amharicTitle      String?
   arabicTitle       String?
   originalFilename  String?
   relativePath      String?
   storageKey        String?
-  remoteUrl         String
-  duration          Int           @default(0) // Duration in seconds
+  remoteUrl         String?
+  duration          Int?     @default(0)
   formattedDuration String?
-  fileSize          BigInt        @default(0) // Physical file size in bytes
+  fileSize          BigInt?  @default(0)
   formattedFileSize String?
-  format            String        @default("mp3")
-  downloadStatus    String        @default("none")
-  isPlaceholder     Boolean       @default(false)
-  isPublished       Boolean       @default(true)
-  metadata          Json?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  format            String?  @default("mp3")
+  downloadStatus    String?  @default("none")
+  isPlaceholder     Boolean? @default(false)
 
-  module            AudioModule   @relation(fields: [moduleId], references: [id], onDelete: Restrict)
-  category          AudioCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  module       AudioModule?            @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  category     AudioCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations AudioTrackTranslation[]
+  assets       AudioAsset[]
 
-  @@index([moduleId])
+  @@unique([categoryId, sortOrder])
   @@index([categoryId])
-  @@index([parentId])
-  @@index([trackNumber])
+  @@index([trackId])
   @@index([isPublished])
+  @@index([archivedAt])
   @@map("audio_tracks")
+}
+
+model AudioTrackTranslation {
+  id          String   @id @default(uuid())
+  trackId     String
+  locale      String // Language code: "am" (Amharic), "ar" (Arabic), "en" (English)
+  title       String // Localized track title
+  description String? // Localized track description
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  track AudioTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, locale])
+  @@index([locale])
+  @@map("audio_track_translations")
+}
+
+model AudioAsset {
+  id        String   @id @default(uuid())
+  trackId   String
+  purpose   String   @default("streaming") // "original", "streaming", "master", "hls"
+  status    String   @default("active") // "active", "processing", "archived"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  track    AudioTrack          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  versions AudioAssetVersion[]
+
+  @@unique([trackId, purpose])
+  @@index([trackId])
+  @@index([status])
+  @@map("audio_assets")
+}
+
+model MediaObject {
+  id              String   @id @default(uuid())
+  sha256          String   @unique // Primary integrity and deduplication hash
+  storageProvider String // "archive_org", "cloudflare_r2", "aws_s3", "local_storage"
+  bucket          String // Storage bucket name
+  objectKey       String // Object path/key within bucket
+  fileSizeBytes   BigInt // Physical file size in bytes
+  mimeType        String   @default("audio/mpeg")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assetVersions AudioAssetVersion[]
+
+  @@unique([storageProvider, bucket, objectKey])
+  @@index([sha256])
+  @@index([storageProvider])
+  @@map("media_objects")
+}
+
+model AudioAssetVersion {
+  id            String   @id @default(uuid())
+  audioAssetId  String
+  mediaObjectId String
+  versionNumber Int      @default(1) // Incremental version number: 1, 2, ...
+  createdAt     DateTime @default(now())
+  createdById   String?
+
+  audioAsset  AudioAsset  @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+  mediaObject MediaObject @relation(fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  createdBy   AdminUser?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([audioAssetId, versionNumber])
+  @@index([audioAssetId])
+  @@index([mediaObjectId])
+  @@map("audio_asset_versions")
 }
 
 // ------------------------------------------------------------------------------
@@ -238,8 +327,8 @@ model AudioTrack {
 // ------------------------------------------------------------------------------
 
 model CatalogRelease {
-  id              String      @id @default(uuid())
-  version         String      @unique // e.g. "2.0.0"
+  id              String   @id @default(uuid())
+  version         String   @unique // e.g. "2.0.0"
   checksumMd5     String
   totalModules    Int
   totalCategories Int
@@ -247,11 +336,11 @@ model CatalogRelease {
   totalSizeBytes  BigInt
   storageUrl      String?
   releaseNotes    String?
-  status          String      @default("published") // "published", "rolled_back"
+  status          String   @default("published") // "published", "rolled_back"
   publishedById   String?
-  publishedAt     DateTime    @default(now())
+  publishedAt     DateTime @default(now())
 
-  publishedBy     AdminUser?  @relation(fields: [publishedById], references: [id])
+  publishedBy AdminUser? @relation(fields: [publishedById], references: [id])
 
   @@map("catalog_releases")
 }
@@ -261,23 +350,23 @@ model CatalogRelease {
 // ------------------------------------------------------------------------------
 
 model Announcement {
-  id             String     @id @default(uuid())
+  id             String    @id @default(uuid())
   title          String
   amharicTitle   String?
   content        String
   amharicContent String?
-  type           String     @default("info") // "info", "warning", "maintenance", "new_content"
-  priority       Int        @default(0) // Higher values displayed first
-  isActive       Boolean    @default(true)
+  type           String    @default("info") // "info", "warning", "maintenance", "new_content"
+  priority       Int       @default(0) // Higher values displayed first
+  isActive       Boolean   @default(true)
   startsAt       DateTime?
   expiresAt      DateTime?
   actionUrl      String?
   actionLabel    String?
   createdById    String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  createdBy      AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([isActive])
   @@index([startsAt])
@@ -292,7 +381,7 @@ model Announcement {
 model PushDeviceToken {
   id          String   @id @default(uuid())
   token       String   @unique // ExponentPushToken[...] or native device token
-  platform    String   // "ios", "android", "web", "unknown"
+  platform    String // "ios", "android", "web", "unknown"
   appVersion  String?
   deviceModel String?
   locale      String?  @default("am")
@@ -308,25 +397,24 @@ model PushDeviceToken {
 }
 
 model PushNotificationBroadcast {
-  id             String     @id @default(uuid())
+  id             String    @id @default(uuid())
   title          String
   body           String
   data           Json?
-  targetAudience String     @default("all") // "all", "ios", "android"
-  status         String     @default("draft") // "draft", "sending", "sent", "failed"
-  totalTargeted  Int        @default(0)
-  totalSent      Int        @default(0)
-  totalFailed    Int        @default(0)
+  targetAudience String    @default("all") // "all", "ios", "android"
+  status         String    @default("draft") // "draft", "sending", "sent", "failed"
+  totalTargeted  Int       @default(0)
+  totalSent      Int       @default(0)
+  totalFailed    Int       @default(0)
   sentAt         DateTime?
   errorMessage   String?
   sentById       String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  sentBy         AdminUser? @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  sentBy AdminUser? @relation(fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([createdAt])
   @@map("push_notification_broadcasts")
 }
-

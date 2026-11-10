@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Activity, ShieldCheck, User, LogOut, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { APP_METADATA } from '@/config/navigation';
 
 interface AuthUserData {
   id: string;
@@ -69,10 +70,10 @@ export function AdminHeader() {
     <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
         <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          Islamic Audio Administration Platform
+          {APP_METADATA.fullTitle}
         </h2>
         <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-          v0.2.0-phase2
+          v{APP_METADATA.version}
         </span>
       </div>
 
