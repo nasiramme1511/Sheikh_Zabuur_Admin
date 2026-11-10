@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/password';
 import { createSession, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/audit';
+import { authRateLimiter } from '@/lib/rate-limit';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -16,6 +17,25 @@ const LOCKOUT_MINUTES = 15;
 export async function POST(req: NextRequest) {
   const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
+
+  // Network-level sliding-window rate limit defense
+  const rateLimit = authRateLimiter.check(ipAddress);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Too many login attempts. Please wait ${rateLimit.retryAfterSeconds} seconds before trying again.`,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds),
+          'X-RateLimit-Limit': String(rateLimit.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+          'X-RateLimit-Reset': String(rateLimit.resetTimeMs),
+        },
+      }
+    );
+  }
 
   let body: unknown;
   try {

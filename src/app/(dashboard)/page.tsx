@@ -294,10 +294,10 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1">
-              <span>Phase 9 — Production Hardening & Deploy</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">UP NEXT</span>
+          <div className="p-4 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
+              <span>Phase 9 — Production Hardening & CI/CD</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 font-mono">DONE</span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
               Security audit, rate limiting, connection pooling, CI/CD pipeline, and Vercel production deployment.

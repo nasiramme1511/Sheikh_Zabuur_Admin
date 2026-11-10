@@ -5,11 +5,37 @@ const PUBLIC_PATHS = [
   '/login',
   '/api/health',
   '/api/admin/auth/login',
+  '/api/v1',
 ];
+
+const SECURITY_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+};
+
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Cache-Control, Accept',
+  'Access-Control-Max-Age': '86400',
+};
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get('sz_admin_session')?.value;
+  const isV1Api = pathname.startsWith('/api/v1');
+
+  // Handle CORS preflight for mobile API endpoints
+  if (isV1Api && request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        ...CORS_HEADERS,
+        ...SECURITY_HEADERS,
+      },
+    });
+  }
 
   // 1. Allow static resources and Next internals
   if (
@@ -22,17 +48,22 @@ export function middleware(request: NextRequest) {
 
   // 2. Allow explicitly public paths
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(path + '/'));
+  const sessionCookie = request.cookies.get('sz_admin_session')?.value;
 
   // 3. If accessing /login and session cookie exists, redirect to home
   if (pathname === '/login' && sessionCookie) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // 4. If accessing protected route and no session cookie, redirect to /login
+  // 4. If accessing protected route and no session cookie, redirect or return 401
   if (!isPublicPath && !sessionCookie) {
-    // If it's an API route, return 401 JSON instead of redirecting
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized', authenticated: false }, { status: 401 });
+      const unauthorizedResponse = NextResponse.json(
+        { error: 'Unauthorized', authenticated: false },
+        { status: 401 }
+      );
+      applySecurityHeaders(unauthorizedResponse, isV1Api);
+      return unauthorizedResponse;
     }
 
     const loginUrl = new URL('/login', request.url);
@@ -40,7 +71,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  applySecurityHeaders(response, isV1Api);
+  return response;
+}
+
+function applySecurityHeaders(res: NextResponse, isV1Api: boolean): void {
+  for (const [key, val] of Object.entries(SECURITY_HEADERS)) {
+    res.headers.set(key, val);
+  }
+  if (isV1Api) {
+    for (const [key, val] of Object.entries(CORS_HEADERS)) {
+      res.headers.set(key, val);
+    }
+  }
 }
 
 export const config = {
@@ -54,4 +98,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
-

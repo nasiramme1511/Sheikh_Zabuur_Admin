@@ -126,3 +126,4 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
   }
 }
+

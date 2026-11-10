@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isStorageConfigured } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,25 +10,48 @@ interface DatabaseHealth {
   message?: string;
 }
 
+interface StorageHealth {
+  status: 'configured' | 'simulation_mode';
+  provider: 's3_compatible' | 'local_simulated';
+}
+
+interface CatalogHealth {
+  activeReleaseVersion?: string;
+  totalTracks?: number;
+  publishedAt?: string;
+}
+
+interface SystemMetrics {
+  uptimeSeconds: number;
+  memoryUsageMb: {
+    heapUsed: number;
+    heapTotal: number;
+    rss: number;
+  };
+}
+
 interface HealthResponse {
   status: 'ok' | 'degraded' | 'error';
   timestamp: string;
-  uptimeSeconds: number;
   environment: string;
   version: string;
   checks: {
     database: DatabaseHealth;
+    storage: StorageHealth;
+    catalog: CatalogHealth;
   };
+  system: SystemMetrics;
 }
 
 export async function GET() {
   const startTime = Date.now();
   let dbHealth: DatabaseHealth = { status: 'unconfigured' };
+  let catalogHealth: CatalogHealth = {};
 
+  // 1. Database Connectivity & Ping
   if (process.env.DATABASE_URL) {
     try {
       const dbStart = Date.now();
-      // Lightweight connection ping without querying business tables
       await prisma.$queryRaw`SELECT 1`;
       const dbLatency = Date.now() - dbStart;
 
@@ -35,9 +59,27 @@ export async function GET() {
         status: 'healthy',
         latencyMs: dbLatency,
       };
+
+      // Retrieve active release metadata for health report
+      const activeRelease = await prisma.catalogRelease.findFirst({
+        where: { status: 'published' },
+        orderBy: { publishedAt: 'desc' },
+        select: {
+          version: true,
+          totalTracks: true,
+          publishedAt: true,
+        },
+      });
+
+      if (activeRelease) {
+        catalogHealth = {
+          activeReleaseVersion: activeRelease.version,
+          totalTracks: activeRelease.totalTracks,
+          publishedAt: activeRelease.publishedAt?.toISOString(),
+        };
+      }
     } catch (err: unknown) {
-      // Do not expose error stack traces or connection strings
-      console.error('[Health Check] Database connectivity check failed:', err instanceof Error ? err.message : err);
+      console.error('[Health Check] Database check failed:', err instanceof Error ? err.message : err);
       dbHealth = {
         status: 'unhealthy',
         message: 'Database service is currently unreachable',
@@ -50,18 +92,38 @@ export async function GET() {
     };
   }
 
+  // 2. Storage System Health
+  const storageConfigured = isStorageConfigured();
+  const storageHealth: StorageHealth = {
+    status: storageConfigured ? 'configured' : 'simulation_mode',
+    provider: storageConfigured ? 's3_compatible' : 'local_simulated',
+  };
+
+  // 3. System Memory & Metrics
+  const mem = process.memoryUsage();
+  const systemMetrics: SystemMetrics = {
+    uptimeSeconds: Math.floor(process.uptime()),
+    memoryUsageMb: {
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+      rss: Math.round(mem.rss / 1024 / 1024),
+    },
+  };
+
   const isHealthy = dbHealth.status === 'healthy';
   const isDegraded = dbHealth.status === 'unconfigured';
 
   const responseBody: HealthResponse = {
     status: isHealthy ? 'ok' : isDegraded ? 'degraded' : 'error',
     timestamp: new Date().toISOString(),
-    uptimeSeconds: Math.floor(process.uptime()),
     environment: process.env.NODE_ENV || 'development',
-    version: '0.1.0-phase1',
+    version: '1.0.0',
     checks: {
       database: dbHealth,
+      storage: storageHealth,
+      catalog: catalogHealth,
     },
+    system: systemMetrics,
   };
 
   const httpStatus = isHealthy ? 200 : isDegraded ? 200 : 503;
@@ -74,4 +136,3 @@ export async function GET() {
     },
   });
 }
-

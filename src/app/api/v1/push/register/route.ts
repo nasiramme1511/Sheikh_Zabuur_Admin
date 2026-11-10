@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { publicPushRateLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,22 @@ const registerTokenSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  const rateLimit = publicPushRateLimiter.check(ipAddress);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again shortly.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds),
+          'X-RateLimit-Limit': String(rateLimit.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+        },
+      }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

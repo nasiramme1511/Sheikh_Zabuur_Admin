@@ -135,3 +135,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }
+
