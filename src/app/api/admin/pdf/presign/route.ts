@@ -13,9 +13,9 @@ const presignPdfSchema = z.object({
     .int()
     .positive('File size must be positive')
     .max(100 * 1024 * 1024, 'Max PDF size is 100 MB'),
-  moduleId: z.string().min(1, 'Module ID is required'),
-  documentId: z.string().min(1, 'Document ID is required'),
-  volumeNumber: z.number().int().min(1).default(1),
+  moduleId: z.string().optional().default('general'),
+  documentId: z.string().optional().default(''),
+  volumeNumber: z.coerce.number().int().min(1).default(1),
 });
 
 export async function POST(req: NextRequest) {
@@ -37,13 +37,18 @@ export async function POST(req: NextRequest) {
 
   const parseResult = presignPdfSchema.safeParse(body);
   if (!parseResult.success) {
+    const errorDetails = parseResult.error.errors
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join(', ');
     return NextResponse.json(
-      { error: 'Validation failed', details: parseResult.error.format() },
+      { error: `Validation failed: ${errorDetails}`, details: parseResult.error.format() },
       { status: 400 }
     );
   }
 
   const { filename, contentType, fileSize, moduleId, documentId, volumeNumber } = parseResult.data;
+  const effectiveModuleId = moduleId && moduleId.trim() ? moduleId.trim() : 'general';
+  const effectiveDocumentId = documentId && documentId.trim() ? documentId.trim() : `doc-${Date.now()}`;
 
   // Validate format and size
   const validation = validateUploadFile(contentType, fileSize, 'pdf');
@@ -57,8 +62,8 @@ export async function POST(req: NextRequest) {
       filename,
       contentType,
       fileSize,
-      moduleId,
-      documentId,
+      moduleId: effectiveModuleId,
+      documentId: effectiveDocumentId,
       volumeNumber,
     });
 

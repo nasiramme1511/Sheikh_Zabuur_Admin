@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, UploadCloud, BookOpen } from 'lucide-react';
 
 interface ModuleOption {
@@ -41,6 +41,7 @@ export function PdfDocumentModal({
   const isEditing = Boolean(documentToEdit);
 
   const [documentId, setDocumentId] = useState(documentToEdit?.documentId || '');
+  const [isCustomDocumentId, setIsCustomDocumentId] = useState(false);
   const [moduleId, setModuleId] = useState(documentToEdit?.moduleId || (modules[0]?.id || ''));
   const [categoryId, setCategoryId] = useState(documentToEdit?.categoryId || '');
   const [title, setTitle] = useState(documentToEdit?.title || '');
@@ -59,10 +60,64 @@ export function PdfDocumentModal({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Sync state when modal opens or documentToEdit/modules change
+  useEffect(() => {
+    if (isOpen) {
+      if (documentToEdit) {
+        setDocumentId(documentToEdit.documentId);
+        setIsCustomDocumentId(true);
+        setModuleId(documentToEdit.moduleId);
+        setCategoryId(documentToEdit.categoryId || '');
+        setTitle(documentToEdit.title);
+        setOromoTitle(documentToEdit.oromoTitle || documentToEdit.amharicTitle || '');
+        setArabicTitle(documentToEdit.arabicTitle || '');
+        setDescription(documentToEdit.description || '');
+        setAuthor(documentToEdit.author || '');
+        setIsPublished(documentToEdit.isPublished);
+        setSortOrder(documentToEdit.sortOrder);
+      } else {
+        setDocumentId('');
+        setIsCustomDocumentId(false);
+        setModuleId(modules[0]?.id || '');
+        setCategoryId('');
+        setTitle('');
+        setOromoTitle('');
+        setArabicTitle('');
+        setDescription('');
+        setAuthor('');
+        setIsPublished(true);
+        setSortOrder(0);
+        setSelectedFile(null);
+        setVolTitle('Volume 1');
+        setVolNumber(1);
+      }
+      setErrorMsg('');
+      setUploadProgress(0);
+    }
+  }, [isOpen, documentToEdit, modules]);
+
+  // Keep moduleId valid if modules array loads late
+  useEffect(() => {
+    if (!moduleId && modules.length > 0) {
+      setModuleId(modules[0].id);
+    }
+  }, [modules, moduleId]);
+
   if (!isOpen) return null;
 
   const currentModule = modules.find((m) => m.id === moduleId);
   const availableCategories = currentModule?.categories || [];
+
+  const handleTitleChange = (val: string) => {
+    setTitle(val);
+    if (!isEditing && !isCustomDocumentId) {
+      const generated = val
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      setDocumentId(generated);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +125,17 @@ export function PdfDocumentModal({
     setIsSubmitting(true);
 
     try {
+      const targetModuleId = moduleId || modules[0]?.id;
+      if (!targetModuleId) {
+        throw new Error('Please select a curriculum module.');
+      }
+
+      const finalDocumentId = (
+        documentId.trim() ||
+        title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') ||
+        `pdf-${Date.now()}`
+      );
+
       if (isEditing && documentToEdit) {
         // Edit document metadata
         const res = await fetch(`/api/admin/pdf/${documentToEdit.id}`, {
@@ -82,7 +148,7 @@ export function PdfDocumentModal({
             arabicTitle: arabicTitle || null,
             description: description || null,
             author: author || null,
-            moduleId,
+            moduleId: targetModuleId,
             categoryId: categoryId || null,
             isPublished,
             sortOrder: Number(sortOrder),
@@ -103,23 +169,39 @@ export function PdfDocumentModal({
         let fileSizeBytes = 0;
 
         if (selectedFile) {
+          const effectiveContentType =
+            selectedFile.type && selectedFile.type !== 'application/octet-stream'
+              ? selectedFile.type
+              : 'application/pdf';
+
           // 1. Presign
           const presignRes = await fetch('/api/admin/pdf/presign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               filename: selectedFile.name,
-              contentType: selectedFile.type || 'application/pdf',
+              contentType: effectiveContentType,
               fileSize: selectedFile.size,
-              moduleId,
-              documentId,
-              volumeNumber: Number(volNumber),
+              moduleId: targetModuleId,
+              documentId: finalDocumentId,
+              volumeNumber: Number(volNumber) || 1,
             }),
           });
 
           if (!presignRes.ok) {
             const err = await presignRes.json();
-            throw new Error(err.error || 'Failed to obtain presigned upload URL');
+            let msg = err.error || 'Failed to obtain presigned upload URL';
+            if (err.details && typeof err.details === 'object') {
+              const detailsObj = err.details as Record<string, { _errors?: string[] }>;
+              const fieldErrors = Object.entries(detailsObj)
+                .filter(([k]) => k !== '_errors')
+                .map(([field, val]) => `${field}: ${(val?._errors || []).join(', ')}`)
+                .filter(Boolean);
+              if (fieldErrors.length > 0) {
+                msg = `Validation failed: ${fieldErrors.join('; ')}`;
+              }
+            }
+            throw new Error(msg);
           }
 
           const presignData = await presignRes.json();
@@ -128,7 +210,7 @@ export function PdfDocumentModal({
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', presignData.uploadUrl);
-            xhr.setRequestHeader('Content-Type', selectedFile.type || 'application/pdf');
+            xhr.setRequestHeader('Content-Type', effectiveContentType);
 
             xhr.upload.onprogress = (evt) => {
               if (evt.lengthComputable) {
@@ -157,8 +239,8 @@ export function PdfDocumentModal({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            documentId,
-            moduleId,
+            documentId: finalDocumentId,
+            moduleId: targetModuleId,
             categoryId: categoryId || null,
             title,
             oromoTitle: oromoTitle || null,
@@ -170,8 +252,10 @@ export function PdfDocumentModal({
             sortOrder: Number(sortOrder),
             initialVolume: uploadedStorageKey
               ? {
-                  volumeNumber: Number(volNumber),
+                  volumeNumber: Number(volNumber) || 1,
                   title: volTitle,
+                  oromoTitle: oromoTitle || null,
+                  amharicTitle: oromoTitle || null,
                   storageKey: uploadedStorageKey,
                   remoteUrl: uploadedRemoteUrl,
                   fileSizeBytes,
@@ -184,7 +268,18 @@ export function PdfDocumentModal({
 
         if (!createRes.ok) {
           const err = await createRes.json();
-          throw new Error(err.error || 'Failed to register PDF document');
+          let msg = err.error || 'Failed to register PDF document';
+          if (err.details && typeof err.details === 'object') {
+            const detailsObj = err.details as Record<string, { _errors?: string[] }>;
+            const fieldErrors = Object.entries(detailsObj)
+              .filter(([k]) => k !== '_errors')
+              .map(([field, val]) => `${field}: ${(val?._errors || []).join(', ')}`)
+              .filter(Boolean);
+            if (fieldErrors.length > 0) {
+              msg = `Validation failed: ${fieldErrors.join('; ')}`;
+            }
+          }
+          throw new Error(msg);
         }
 
         onSuccess();
@@ -243,7 +338,10 @@ export function PdfDocumentModal({
                 required
                 placeholder="e.g. usul-salasa-kitab"
                 value={documentId}
-                onChange={(e) => setDocumentId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                onChange={(e) => {
+                  setIsCustomDocumentId(true);
+                  setDocumentId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+                }}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono disabled:opacity-60"
               />
             </div>
@@ -321,7 +419,7 @@ export function PdfDocumentModal({
               required
               placeholder="e.g. Al-Usul Al-Thalatha"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>

@@ -105,7 +105,15 @@ export function validateUploadFile(
       };
     }
   } else if (assetType === 'pdf') {
-    if (contentType.toLowerCase() !== 'application/pdf') {
+    const validPdfTypes = [
+      'application/pdf',
+      'application/x-pdf',
+      'application/acrobat',
+      'applications/vnd.pdf',
+      'text/pdf',
+      'application/octet-stream',
+    ];
+    if (!validPdfTypes.includes(contentType.toLowerCase())) {
       return {
         valid: false,
         error: `Unsupported document format "${contentType}". Only PDF documents are supported.`,

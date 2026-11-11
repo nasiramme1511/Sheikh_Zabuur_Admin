@@ -10,9 +10,10 @@ export const dynamic = 'force-dynamic';
 const addVolumeSchema = z.object({
   volumeNumber: z.number().int().min(1),
   title: z.string().min(1, 'Volume title is required'),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   storageKey: z.string().nullable().optional(),
-  remoteUrl: z.string().url('Must be a valid URL').nullable().optional(),
+  remoteUrl: z.string().nullable().optional(),
   fileSizeBytes: z.number().int().default(0),
   pageCount: z.number().int().default(0),
   sha256: z.string().nullable().optional(),
@@ -42,8 +43,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const parseResult = addVolumeSchema.safeParse(body);
   if (!parseResult.success) {
+    const errorDetails = parseResult.error.errors
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join(', ');
     return NextResponse.json(
-      { error: 'Validation failed', details: parseResult.error.format() },
+      { error: `Validation failed: ${errorDetails}`, details: parseResult.error.format() },
       { status: 400 }
     );
   }
@@ -74,7 +78,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         documentId,
         volumeNumber: data.volumeNumber,
         title: data.title,
-        amharicTitle: data.amharicTitle || null,
+        oromoTitle: data.oromoTitle || data.amharicTitle || null,
+        amharicTitle: data.amharicTitle || data.oromoTitle || null,
         storageKey: data.storageKey || null,
         remoteUrl: data.remoteUrl || null,
         fileSizeBytes: BigInt(data.fileSizeBytes),
