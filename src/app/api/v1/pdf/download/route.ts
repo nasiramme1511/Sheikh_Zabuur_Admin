@@ -8,11 +8,13 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-const UPLOADS_DIR = path.join(process.cwd(), '.uploads');
-
-function getSafeFilePath(key: string): string {
+function getSafeFilePath(key: string): string | null {
   const safeKey = key.replace(/[^a-zA-Z0-9_.-]/g, '_');
-  return path.join(UPLOADS_DIR, safeKey);
+  const uploadsPath = path.join(process.cwd(), '.uploads', safeKey);
+  if (fs.existsSync(uploadsPath)) return uploadsPath;
+  const publicPath = path.join(process.cwd(), 'public', key);
+  if (fs.existsSync(publicPath)) return publicPath;
+  return null;
 }
 
 export async function OPTIONS() {
@@ -122,9 +124,9 @@ async function handleDownload(req: NextRequest, isHeadOnly: boolean) {
     }
   }
 
-  // 2. Local Disk Storage Mode (.uploads)
+  // 2. Local / Public Static Disk Storage Mode
   const filePath = getSafeFilePath(storageKey);
-  if (!fs.existsSync(filePath)) {
+  if (!filePath || !fs.existsSync(filePath)) {
     return NextResponse.json(
       { error: 'PDF file not found. Ensure the document has been uploaded and published.' },
       {

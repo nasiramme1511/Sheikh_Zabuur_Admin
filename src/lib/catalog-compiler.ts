@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from './prisma';
 import { formatBytes, formatDuration } from './serialize';
-import { getPublicDownloadUrl } from './storage';
 import { getServerEnv } from './env';
 
 export interface MobileCategory {
@@ -333,12 +332,22 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     sortOrder: doc.sortOrder,
     updatedAt: doc.updatedAt.toISOString(),
     volumes: doc.volumes.map((vol) => {
+      const effectiveHost = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : appUrl.includes('sheikhzabur.com')
+        ? 'https://sheikh-zabuur-admin-zkam.vercel.app'
+        : appUrl;
+
       let publicUrl = vol.remoteUrl || '';
-      if (!publicUrl || publicUrl.includes('/api/admin/uploads/mock')) {
+      if (
+        !publicUrl ||
+        publicUrl.includes('/api/admin/uploads/mock') ||
+        publicUrl.includes('audio.sheikhzabur.com')
+      ) {
         if (vol.storageKey) {
-          publicUrl = getPublicDownloadUrl(vol.storageKey, `${doc.documentId}-vol${vol.volumeNumber}.pdf`);
+          publicUrl = `${effectiveHost}/api/v1/pdf/download?key=${encodeURIComponent(vol.storageKey)}`;
         } else {
-          publicUrl = `${appUrl}/api/v1/pdf/download?key=${encodeURIComponent(`pdf/${doc.moduleId}/${doc.documentId}/volume-${vol.volumeNumber}.pdf`)}`;
+          publicUrl = `${effectiveHost}/api/v1/pdf/download?key=${encodeURIComponent(`pdf/${doc.moduleId}/${doc.documentId}/volume-${vol.volumeNumber}.pdf`)}`;
         }
       }
 
