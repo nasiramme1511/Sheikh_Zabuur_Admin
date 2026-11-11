@@ -15,6 +15,7 @@ const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
 export async function POST(req: NextRequest) {
+  try {
   const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
@@ -191,5 +192,12 @@ export async function POST(req: NextRequest) {
   });
 
   return response;
+  } catch (error) {
+    console.error("[Login Error]", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Authentication service error. Please try again." },
+      { status: 500 }
+    );
+  }
 }
 

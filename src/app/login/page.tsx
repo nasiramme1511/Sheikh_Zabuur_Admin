@@ -26,10 +26,10 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setErrorMessage(data.error || 'Authentication failed. Please verify your credentials.');
+        setErrorMessage(data?.error || `Authentication failed (Server error ${res.status}).`);
         setIsLoading(false);
         return;
       }

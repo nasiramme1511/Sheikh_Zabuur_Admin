@@ -44,6 +44,7 @@ interface HealthResponse {
 }
 
 export async function GET() {
+  try {
   const startTime = Date.now();
   let dbHealth: DatabaseHealth = { status: 'unconfigured' };
   let catalogHealth: CatalogHealth = {};
@@ -135,4 +136,15 @@ export async function GET() {
       'X-Response-Time-Ms': (Date.now() - startTime).toString(),
     },
   });
+  } catch (fatalErr) {
+    console.error('[Health Fatal Error]', fatalErr);
+    return NextResponse.json(
+      {
+        status: 'error',
+        error: fatalErr instanceof Error ? fatalErr.message : String(fatalErr),
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
+  }
 }
