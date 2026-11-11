@@ -14,7 +14,8 @@
     "prisma:validate": "prisma validate",
     "db:seed": "tsx prisma/seed.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
-    "catalog:import": "tsx scripts/import-catalog.ts"
+    "catalog:import": "tsx scripts/import-catalog.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -31,7 +32,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.1",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "prisma": "^6.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
@@ -42,7 +44,6 @@
     "eslint-config-next": "^15.1.12",
     "postcss": "^8.5.2",
     "prettier": "^3.5.0",
-    "prisma": "^6.3.1",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.15",
     "typescript": "^5.7.3"
