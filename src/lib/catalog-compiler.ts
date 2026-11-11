@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { prisma } from './prisma';
 import { formatBytes, formatDuration } from './serialize';
+import { getPublicDownloadUrl } from './storage';
+import { getServerEnv } from './env';
 
 export interface MobileCategory {
   id: string;
@@ -58,10 +60,16 @@ export interface MobilePdfVolume {
   oromoTitle?: string | null;
   amharicTitle?: string | null;
   remoteUrl: string;
+  downloadUrl: string;
   fileSizeBytes: number;
+  formattedFileSize?: string | null;
+  mimeType: string;
   pageCount?: number | null;
   sha256?: string | null;
   versionNumber: number;
+  storageKey?: string | null;
+  isPublished: boolean;
+  updatedAt?: string | null;
 }
 
 export interface MobilePdfDocument {
@@ -75,6 +83,9 @@ export interface MobilePdfDocument {
   arabicTitle?: string | null;
   description?: string | null;
   author?: string | null;
+  isPublished: boolean;
+  sortOrder: number;
+  updatedAt: string;
   volumes: MobilePdfVolume[];
 }
 
@@ -303,8 +314,10 @@ export async function compileCatalog(version: string): Promise<CompilationResult
   });
 
   const nowIso = new Date().toISOString();
+  const env = getServerEnv();
+  const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
-  // Compile Published PDFs
+  // Compile Published PDFs with complete mobile-accessible metadata
   const pdfs: MobilePdfDocument[] = pdfsData.map((doc) => ({
     id: doc.id,
     documentId: doc.documentId,
@@ -316,17 +329,39 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     arabicTitle: doc.arabicTitle || null,
     description: doc.description || null,
     author: doc.author || null,
-    volumes: doc.volumes.map((vol) => ({
-      volumeNumber: vol.volumeNumber,
-      title: vol.title,
-      oromoTitle: vol.oromoTitle || vol.amharicTitle || null,
-      amharicTitle: vol.amharicTitle || vol.oromoTitle || null,
-      remoteUrl: vol.remoteUrl || '',
-      fileSizeBytes: Number(vol.fileSizeBytes),
-      pageCount: vol.pageCount || null,
-      sha256: vol.sha256 || null,
-      versionNumber: vol.versionNumber,
-    })),
+    isPublished: doc.isPublished,
+    sortOrder: doc.sortOrder,
+    updatedAt: doc.updatedAt.toISOString(),
+    volumes: doc.volumes.map((vol) => {
+      let publicUrl = vol.remoteUrl || '';
+      if (!publicUrl || publicUrl.includes('/api/admin/uploads/mock')) {
+        if (vol.storageKey) {
+          publicUrl = getPublicDownloadUrl(vol.storageKey, `${doc.documentId}-vol${vol.volumeNumber}.pdf`);
+        } else {
+          publicUrl = `${appUrl}/api/v1/pdf/download?key=${encodeURIComponent(`pdf/${doc.moduleId}/${doc.documentId}/volume-${vol.volumeNumber}.pdf`)}`;
+        }
+      }
+
+      const sizeNum = Number(vol.fileSizeBytes || 0);
+
+      return {
+        volumeNumber: vol.volumeNumber,
+        title: vol.title,
+        oromoTitle: vol.oromoTitle || vol.amharicTitle || null,
+        amharicTitle: vol.amharicTitle || vol.oromoTitle || null,
+        remoteUrl: publicUrl,
+        downloadUrl: publicUrl,
+        fileSizeBytes: sizeNum,
+        formattedFileSize: formatBytes(sizeNum),
+        mimeType: 'application/pdf',
+        pageCount: vol.pageCount || null,
+        sha256: vol.sha256 || null,
+        versionNumber: vol.versionNumber,
+        storageKey: vol.storageKey || null,
+        isPublished: vol.isPublished,
+        updatedAt: vol.updatedAt.toISOString(),
+      };
+    }),
   }));
 
   // Compile Active App Branding

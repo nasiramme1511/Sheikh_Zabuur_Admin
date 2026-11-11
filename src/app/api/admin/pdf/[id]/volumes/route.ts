@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/audit';
 import { serializeBigInt } from '@/lib/serialize';
+import { getPublicDownloadUrl } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         oromoTitle: data.oromoTitle || data.amharicTitle || null,
         amharicTitle: data.amharicTitle || data.oromoTitle || null,
         storageKey: data.storageKey || null,
-        remoteUrl: data.remoteUrl || null,
+        remoteUrl: data.storageKey
+          ? getPublicDownloadUrl(data.storageKey, `${doc.documentId}-vol${data.volumeNumber}.pdf`)
+          : data.remoteUrl || null,
         fileSizeBytes: BigInt(data.fileSizeBytes),
         pageCount: data.pageCount,
         sha256: data.sha256 || null,

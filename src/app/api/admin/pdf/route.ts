@@ -5,6 +5,7 @@ import { requirePermission } from '@/lib/auth';
 import { recordAuditLog } from '@/lib/audit';
 import { serializeBigInt } from '@/lib/serialize';
 import { parsePaginationParams, apiSuccess, apiError } from '@/lib/api-response';
+import { getPublicDownloadUrl, verifyUploadedObject } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +155,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Verify uploaded object exists if an initial volume was provided
+  if (data.initialVolume?.storageKey) {
+    const verified = await verifyUploadedObject(data.initialVolume.storageKey);
+    if (!verified) {
+      console.warn(`[API PDF POST] Storage object '${data.initialVolume.storageKey}' not yet verified on remote storage; proceeding with registered key.`);
+    }
+  }
+
   try {
     const newDoc = await prisma.$transaction(async (tx) => {
       const doc = await tx.pdfDocument.create({
@@ -177,7 +186,9 @@ export async function POST(req: NextRequest) {
                   oromoTitle: data.initialVolume.oromoTitle || data.initialVolume.amharicTitle || null,
                   amharicTitle: data.initialVolume.amharicTitle || data.initialVolume.oromoTitle || null,
                   storageKey: data.initialVolume.storageKey || null,
-                  remoteUrl: data.initialVolume.remoteUrl || null,
+                  remoteUrl: data.initialVolume.storageKey
+                    ? getPublicDownloadUrl(data.initialVolume.storageKey, `${data.documentId}-vol${data.initialVolume.volumeNumber}.pdf`)
+                    : data.initialVolume.remoteUrl || null,
                   fileSizeBytes: BigInt(data.initialVolume.fileSizeBytes),
                   pageCount: data.initialVolume.pageCount,
                   sha256: data.initialVolume.sha256 || null,

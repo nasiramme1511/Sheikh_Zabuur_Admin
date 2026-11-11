@@ -6,6 +6,8 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import fs from 'fs';
+import path from 'path';
 import { getServerEnv } from './env';
 
 let s3ClientInstance: S3Client | null = null;
@@ -182,6 +184,23 @@ export function buildStorageKey(options: PresignedUploadOptions): string {
 }
 
 /**
+ * Resolves a real, mobile-accessible public download URL for any storage object.
+ * Replaces any simulated/mock admin routes with standard CDN or public download streaming.
+ */
+export function getPublicDownloadUrl(storageKey: string, filename?: string): string {
+  const env = getServerEnv();
+
+  if (env.STORAGE_PUBLIC_BASE_URL) {
+    return `${env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')}/${storageKey}`;
+  }
+
+  const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  const search = new URLSearchParams({ key: storageKey });
+  if (filename) search.set('filename', filename);
+  return `${appUrl}/api/v1/pdf/download?${search.toString()}`;
+}
+
+/**
  * Generates an S3/Cloudflare R2 presigned PUT URL for direct client-to-cloud upload.
  * Large media files bypass Next.js API servers entirely.
  */
@@ -193,14 +212,14 @@ export async function createPresignedUploadUrl(
   const storageKey = buildStorageKey(options);
 
   // If storage credentials are not provided (e.g. dev mock), return simulated upload route
+  // but ensure remoteUrl is a mobile-accessible public download URL
   if (!client || !env.STORAGE_BUCKET_NAME) {
-    const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    const localRemoteUrl = `${appUrl}/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`;
+    const realDownloadUrl = getPublicDownloadUrl(storageKey, options.filename);
 
     return {
       uploadUrl: `/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`,
       storageKey,
-      remoteUrl: localRemoteUrl,
+      remoteUrl: realDownloadUrl,
       isSimulated: true,
       expiresIn: 3600,
     };
@@ -237,7 +256,7 @@ export async function createPresignedUploadUrl(
 }
 
 /**
- * Inspects uploaded object headers in storage bucket (if configured)
+ * Inspects uploaded object headers in storage bucket or local storage directory
  */
 export async function verifyUploadedObject(
   storageKey: string
@@ -245,25 +264,40 @@ export async function verifyUploadedObject(
   const env = getServerEnv();
   const client = getStorageClient();
 
-  if (!client || !env.STORAGE_BUCKET_NAME) {
-    return null;
+  if (client && env.STORAGE_BUCKET_NAME) {
+    try {
+      const head = await client.send(
+        new HeadObjectCommand({
+          Bucket: env.STORAGE_BUCKET_NAME,
+          Key: storageKey,
+        })
+      );
+      return {
+        size: head.ContentLength || 0,
+        contentType: head.ContentType,
+      };
+    } catch (err) {
+      console.error(`[Storage] Failed to head object ${storageKey}:`, err);
+      return null;
+    }
   }
 
+  // Local storage mode fallback check (.uploads directory)
   try {
-    const head = await client.send(
-      new HeadObjectCommand({
-        Bucket: env.STORAGE_BUCKET_NAME,
-        Key: storageKey,
-      })
-    );
-    return {
-      size: head.ContentLength || 0,
-      contentType: head.ContentType,
-    };
+    const safeKey = storageKey.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const localPath = path.join(process.cwd(), '.uploads', safeKey);
+    if (fs.existsSync(localPath)) {
+      const stat = fs.statSync(localPath);
+      return {
+        size: stat.size,
+        contentType: 'application/pdf',
+      };
+    }
   } catch (err) {
-    console.error(`[Storage] Failed to head object ${storageKey}:`, err);
-    return null;
+    console.error(`[Storage] Failed to verify local object ${storageKey}:`, err);
   }
+
+  return null;
 }
 
 /**
@@ -274,7 +308,17 @@ export async function deleteStorageObject(storageKey: string): Promise<boolean> 
   const client = getStorageClient();
 
   if (!client || !env.STORAGE_BUCKET_NAME) {
-    return true; // Simulation mode succeeds
+    // Delete local file if exists
+    try {
+      const safeKey = storageKey.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const localPath = path.join(process.cwd(), '.uploads', safeKey);
+      if (fs.existsSync(localPath)) {
+        fs.unlinkSync(localPath);
+      }
+    } catch (err) {
+      console.error(`[Storage] Failed to delete local object ${storageKey}:`, err);
+    }
+    return true;
   }
 
   try {
@@ -302,8 +346,7 @@ export async function createPresignedDownloadUrl(
   const client = getStorageClient();
 
   if (!client || !env.STORAGE_BUCKET_NAME) {
-    const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    return `${appUrl}/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`;
+    return getPublicDownloadUrl(storageKey);
   }
 
   const command = new GetObjectCommand({
