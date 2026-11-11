@@ -117,9 +117,9 @@ export function AudioPreviewPlayer() {
                 </span>
               )}
             </div>
-            {currentTrack.amharicTitle ? (
+            {currentTrack.oromoTitle || currentTrack.amharicTitle ? (
               <p className="text-[11px] text-emerald-400/90 truncate font-sans">
-                {currentTrack.amharicTitle}
+                {currentTrack.oromoTitle || currentTrack.amharicTitle}
               </p>
             ) : (
               <p className="text-[11px] text-slate-400 font-mono truncate">

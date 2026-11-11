@@ -64,3 +64,4 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to activate branding version' }, { status: 500 });
   }
 }
+

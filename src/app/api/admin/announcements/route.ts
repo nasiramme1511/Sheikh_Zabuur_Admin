@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic';
 
 const announcementSchema = z.object({
   title: z.string().min(1, 'Title is required'),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   content: z.string().min(1, 'Content is required'),
+  oromoContent: z.string().nullable().optional(),
   amharicContent: z.string().nullable().optional(),
   type: z.enum(['info', 'warning', 'maintenance', 'new_content']).default('info'),
   priority: z.number().int().default(0),
@@ -71,14 +73,18 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parseResult.data;
+  const finalOromoTitle = data.oromoTitle !== undefined ? data.oromoTitle : data.amharicTitle || null;
+  const finalOromoContent = data.oromoContent !== undefined ? data.oromoContent : data.amharicContent || null;
 
   try {
     const announcement = await prisma.announcement.create({
       data: {
         title: data.title,
-        amharicTitle: data.amharicTitle || null,
+        oromoTitle: finalOromoTitle,
+        amharicTitle: finalOromoTitle,
         content: data.content,
-        amharicContent: data.amharicContent || null,
+        oromoContent: finalOromoContent,
+        amharicContent: finalOromoContent,
         type: data.type,
         priority: data.priority,
         isActive: data.isActive,

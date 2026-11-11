@@ -184,7 +184,7 @@ export default function DashboardPage() {
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                <strong>Comprehensive Search:</strong> Fast debounced querying by track title, Amharic name, Arabic name, track ID, and original filename.
+                <strong>Comprehensive Search:</strong> Fast debounced querying by track title, Afaan Oromoo name, Arabic name, track ID, and original filename.
               </span>
             </div>
             <div className="flex items-start gap-2">

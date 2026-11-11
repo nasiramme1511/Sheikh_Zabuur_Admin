@@ -29,6 +29,7 @@ interface PdfVolumeItem {
   documentId: string;
   volumeNumber: number;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   storageKey?: string | null;
   remoteUrl?: string | null;
@@ -42,6 +43,7 @@ interface PdfDocumentItem {
   id: string;
   documentId: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -56,12 +58,14 @@ interface PdfDocumentItem {
     id: string;
     name?: string;
     title?: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
   };
   category?: {
     id: string;
     name?: string;
     title?: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
   } | null;
   volumes: PdfVolumeItem[];
@@ -236,7 +240,7 @@ export default function PdfManagementPage() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by title, Amharic title, author, or document ID..."
+              placeholder="Search by title, Afaan Oromoo title, author, or document ID..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -340,9 +344,9 @@ export default function PdfManagementPage() {
                           <div>
                             <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                               <span>{doc.title}</span>
-                              {doc.amharicTitle && (
-                                <span className="text-[11px] font-normal text-slate-500 font-amharic">
-                                  ({doc.amharicTitle})
+                              {(doc.oromoTitle || doc.amharicTitle) && (
+                                <span className="text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
+                                  ({doc.oromoTitle || doc.amharicTitle})
                                 </span>
                               )}
                             </div>

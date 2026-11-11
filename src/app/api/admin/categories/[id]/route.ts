@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const updateCategorySchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').optional(),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   arabicTitle: z.string().nullable().optional(),
   order: z.number().int().optional(),
@@ -82,7 +83,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       where: { id },
       data: {
         title: updateData.title ?? existing.title,
-        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : existing.amharicTitle,
+        oromoTitle: updateData.oromoTitle !== undefined ? updateData.oromoTitle : (updateData.amharicTitle !== undefined ? updateData.amharicTitle : existing.oromoTitle),
+        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : (updateData.oromoTitle !== undefined ? updateData.oromoTitle : existing.amharicTitle),
         arabicTitle: updateData.arabicTitle !== undefined ? updateData.arabicTitle : existing.arabicTitle,
         order: updateData.order ?? existing.order,
       },

@@ -22,6 +22,7 @@ interface ModuleData {
   slug: string;
   name: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -122,7 +123,8 @@ export default function ModulesPage() {
               ...m,
               name: updatedMod.name,
               title: updatedMod.title || updatedMod.name,
-              amharicTitle: updatedMod.amharicTitle,
+              oromoTitle: updatedMod.oromoTitle,
+              amharicTitle: updatedMod.oromoTitle || updatedMod.amharicTitle,
               arabicTitle: updatedMod.arabicTitle,
               description: updatedMod.description,
               sortOrder: updatedMod.sortOrder,
@@ -224,9 +226,9 @@ export default function ModulesPage() {
                     <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 line-clamp-1">
                       {m.title || m.name}
                     </h3>
-                    {m.amharicTitle && (
+                    {(m.oromoTitle || m.amharicTitle) && (
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 font-sans mt-0.5 line-clamp-1">
-                        {m.amharicTitle}
+                        {m.oromoTitle || m.amharicTitle}
                       </p>
                     )}
                   </div>
@@ -270,9 +272,9 @@ export default function ModulesPage() {
                   <Settings2 className="w-4 h-4" />
                 </button>
               </div>
-              {activeModule.amharicTitle && (
+              {(activeModule.oromoTitle || activeModule.amharicTitle) && (
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-sans mt-0.5">
-                  {activeModule.amharicTitle}
+                  {activeModule.oromoTitle || activeModule.amharicTitle}
                 </p>
               )}
             </div>
@@ -332,7 +334,7 @@ export default function ModulesPage() {
                           {cat.order}
                         </td>
 
-                        {/* Title & Amharic */}
+                        {/* Title & Afaan Oromoo */}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             {isSubcategory && (
@@ -342,9 +344,9 @@ export default function ModulesPage() {
                               <div className="font-semibold text-slate-900 dark:text-slate-100">
                                 {cat.title}
                               </div>
-                              {cat.amharicTitle && (
+                              {(cat.oromoTitle || cat.amharicTitle) && (
                                 <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans mt-0.5">
-                                  {cat.amharicTitle}
+                                  {cat.oromoTitle || cat.amharicTitle}
                                 </div>
                               )}
                             </div>

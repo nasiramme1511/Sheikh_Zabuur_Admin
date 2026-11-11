@@ -44,3 +44,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to retrieve branding' }, { status: 500 });
   }
 }
+

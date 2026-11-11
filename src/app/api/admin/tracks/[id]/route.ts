@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const updateTrackSchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').optional(),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   arabicTitle: z.string().nullable().optional(),
   trackNumber: z.number().int().min(1).optional(),
@@ -82,7 +83,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       where: { id },
       data: {
         title: updateData.title ?? existingTrack.title,
-        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : existingTrack.amharicTitle,
+        oromoTitle: updateData.oromoTitle !== undefined ? updateData.oromoTitle : (updateData.amharicTitle !== undefined ? updateData.amharicTitle : existingTrack.oromoTitle),
+        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : (updateData.oromoTitle !== undefined ? updateData.oromoTitle : existingTrack.amharicTitle),
         arabicTitle: updateData.arabicTitle !== undefined ? updateData.arabicTitle : existingTrack.arabicTitle,
         trackNumber: updateData.trackNumber ?? existingTrack.trackNumber,
         trackOrder: updateData.trackOrder ?? existingTrack.trackOrder,

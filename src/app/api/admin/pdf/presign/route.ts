@@ -71,3 +71,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to generate cloud upload URL' }, { status: 500 });
   }
 }
+

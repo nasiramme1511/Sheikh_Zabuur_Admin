@@ -19,6 +19,7 @@ interface PdfDocumentModalProps {
     id: string;
     documentId: string;
     title: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
     arabicTitle?: string | null;
     description?: string | null;
@@ -43,7 +44,7 @@ export function PdfDocumentModal({
   const [moduleId, setModuleId] = useState(documentToEdit?.moduleId || (modules[0]?.id || ''));
   const [categoryId, setCategoryId] = useState(documentToEdit?.categoryId || '');
   const [title, setTitle] = useState(documentToEdit?.title || '');
-  const [amharicTitle, setAmharicTitle] = useState(documentToEdit?.amharicTitle || '');
+  const [oromoTitle, setOromoTitle] = useState(documentToEdit?.oromoTitle || documentToEdit?.amharicTitle || '');
   const [arabicTitle, setArabicTitle] = useState(documentToEdit?.arabicTitle || '');
   const [description, setDescription] = useState(documentToEdit?.description || '');
   const [author, setAuthor] = useState(documentToEdit?.author || '');
@@ -76,7 +77,8 @@ export function PdfDocumentModal({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title,
-            amharicTitle: amharicTitle || null,
+            oromoTitle: oromoTitle || null,
+            amharicTitle: oromoTitle || null,
             arabicTitle: arabicTitle || null,
             description: description || null,
             author: author || null,
@@ -159,7 +161,8 @@ export function PdfDocumentModal({
             moduleId,
             categoryId: categoryId || null,
             title,
-            amharicTitle: amharicTitle || null,
+            oromoTitle: oromoTitle || null,
+            amharicTitle: oromoTitle || null,
             arabicTitle: arabicTitle || null,
             description: description || null,
             author: author || null,
@@ -326,13 +329,13 @@ export function PdfDocumentModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Amharic Title (የአማርኛ ርዕስ)
+                Afaan Oromoo Title (Mata Duree Afaan Oromoo)
               </label>
               <input
                 type="text"
-                placeholder="e.g. ኡሱሉ ሶላሳ"
-                value={amharicTitle}
-                onChange={(e) => setAmharicTitle(e.target.value)}
+                placeholder="e.g. Usuula Salfaan"
+                value={oromoTitle}
+                onChange={(e) => setOromoTitle(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               />
             </div>

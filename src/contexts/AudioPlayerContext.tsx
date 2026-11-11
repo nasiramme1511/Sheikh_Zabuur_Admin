@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 export interface ActiveTrack {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   moduleTitle?: string;
   categoryTitle?: string;

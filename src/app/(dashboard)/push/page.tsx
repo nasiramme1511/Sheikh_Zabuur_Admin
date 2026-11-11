@@ -318,7 +318,7 @@ export default function PushNotificationsPage() {
                 maxLength={500}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Write your push notification message in English or Amharic (ለምሳሌ፡ አዲስ የተፍሲር ደርስ ተለቋል)..."
+                placeholder="Write your push notification message in English or Afaan Oromoo (Fkn: Darsiin Tafsiiraa haaraan gadhiifameera)..."
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
               />

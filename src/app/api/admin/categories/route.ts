@@ -14,6 +14,7 @@ const createCategorySchema = z.object({
     .min(1, 'Slug is required')
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   name: z.string().min(1, 'Name is required'),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   arabicTitle: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
       orderBy: { sortOrder: 'asc' },
       include: {
         module: {
-          select: { id: true, title: true, name: true, amharicTitle: true },
+          select: { id: true, title: true, name: true, oromoTitle: true, amharicTitle: true },
         },
         parent: {
           select: { id: true, title: true, name: true },
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { moduleId, parentId, slug, name, amharicTitle, arabicTitle, description, sortOrder } = parseResult.data;
+  const { moduleId, parentId, slug, name, oromoTitle, amharicTitle, arabicTitle, description, sortOrder } = parseResult.data;
 
   // Validate module exists
   const moduleExists = await prisma.audioModule.findUnique({ where: { id: moduleId } });
@@ -127,7 +128,8 @@ export async function POST(req: NextRequest) {
           slug,
           name,
           title: name,
-          amharicTitle: amharicTitle || null,
+          oromoTitle: oromoTitle || amharicTitle || null,
+          amharicTitle: amharicTitle || oromoTitle || null,
           arabicTitle: arabicTitle || null,
           description: description || null,
           sortOrder: nextOrder,

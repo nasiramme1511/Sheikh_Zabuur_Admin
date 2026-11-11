@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const updateModuleSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').optional(),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   arabicTitle: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -95,7 +96,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       data: {
         name: updateData.name ?? existing.name,
         title: updateData.name ?? existing.title,
-        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : existing.amharicTitle,
+        oromoTitle: updateData.oromoTitle !== undefined ? updateData.oromoTitle : (updateData.amharicTitle !== undefined ? updateData.amharicTitle : existing.oromoTitle),
+        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : (updateData.oromoTitle !== undefined ? updateData.oromoTitle : existing.amharicTitle),
         arabicTitle: updateData.arabicTitle !== undefined ? updateData.arabicTitle : existing.arabicTitle,
         description: updateData.description !== undefined ? updateData.description : existing.description,
         iconName: updateData.iconName !== undefined ? updateData.iconName : existing.iconName,
@@ -202,3 +204,4 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to delete module' }, { status: 500 });
   }
 }
+

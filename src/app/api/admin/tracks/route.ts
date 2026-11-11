@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
     where.OR = [
       { id: { contains: search, mode: 'insensitive' } },
       { title: { contains: search, mode: 'insensitive' } },
+      { oromoTitle: { contains: search, mode: 'insensitive' } },
       { amharicTitle: { contains: search, mode: 'insensitive' } },
       { arabicTitle: { contains: search, mode: 'insensitive' } },
       { originalFilename: { contains: search, mode: 'insensitive' } },
@@ -74,10 +75,10 @@ export async function GET(req: NextRequest) {
         take: limit,
         include: {
           module: {
-            select: { id: true, title: true, amharicTitle: true },
+            select: { id: true, title: true, oromoTitle: true, amharicTitle: true },
           },
           category: {
-            select: { id: true, title: true, amharicTitle: true },
+            select: { id: true, title: true, oromoTitle: true, amharicTitle: true },
           },
         },
       }),

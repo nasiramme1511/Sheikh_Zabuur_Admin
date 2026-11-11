@@ -22,10 +22,12 @@ import {
 interface ModuleOption {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   categories: {
     id: string;
     title: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
     trackCount?: number;
   }[];
@@ -256,6 +258,7 @@ export default function UploadPage() {
           moduleId: selectedModuleId,
           categoryId: selectedCategoryId,
           title: item.title,
+          oromoTitle: item.amharicTitle.trim() || null,
           amharicTitle: item.amharicTitle.trim() || null,
           arabicTitle: item.arabicTitle.trim() || null,
           duration: item.duration,
@@ -361,7 +364,7 @@ export default function UploadPage() {
             >
               {modules.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.title} {m.amharicTitle ? `(${m.amharicTitle})` : ''}
+                  {m.title} {m.oromoTitle || m.amharicTitle ? `(${m.oromoTitle || m.amharicTitle})` : ''}
                 </option>
               ))}
             </select>
@@ -595,14 +598,14 @@ export default function UploadPage() {
 
                     <div className="space-y-1">
                       <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                        Amharic Title (የአማርኛ ርዕስ)
+                        Afaan Oromoo Title (Mata Duree Afaan Oromoo)
                       </label>
                       <input
                         type="text"
                         value={item.amharicTitle}
                         onChange={(e) => updateStagedItem(item.id, { amharicTitle: e.target.value })}
                         disabled={item.status !== 'idle' && item.status !== 'error'}
-                        placeholder="ደርስ ፩"
+                        placeholder="Darsii 01"
                         className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>

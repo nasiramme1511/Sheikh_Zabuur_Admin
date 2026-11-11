@@ -156,6 +156,7 @@ model AudioModule {
   slug           String   @unique // Canonical unique slug: "beyquna", "usul", "tafseer", etc.
   name           String // Display name: e.g. "Beyquna"
   title          String? // Legacy alias
+  oromoTitle     String? // Afaan Oromoo localized title
   amharicTitle   String? // Multilingual localized title
   arabicTitle    String? // Arabic script title
   description    String?
@@ -185,6 +186,7 @@ model AudioCategory {
   slug         String // Category slug unique within module
   name         String // Display name: e.g. "Kitabul Tawhid"
   title        String? // Legacy alias
+  oromoTitle   String? // Afaan Oromoo localized title
   amharicTitle String? // Multilingual localized title
   arabicTitle  String? // Arabic script title
   description  String?
@@ -228,6 +230,7 @@ model AudioTrack {
   parentId          String? // Direct container identifier
   trackNumber       Int?
   trackOrder        Int?
+  oromoTitle        String?   // Afaan Oromoo localized title
   amharicTitle      String?
   arabicTitle       String?
   originalFilename  String?
@@ -355,8 +358,10 @@ model CatalogRelease {
 model Announcement {
   id             String    @id @default(uuid())
   title          String
+  oromoTitle     String?   // Afaan Oromoo title
   amharicTitle   String?
   content        String
+  oromoContent   String?   // Afaan Oromoo content
   amharicContent String?
   type           String    @default("info") // "info", "warning", "maintenance", "new_content"
   priority       Int       @default(0) // Higher values displayed first
@@ -432,6 +437,7 @@ model PdfDocument {
   moduleId     String
   categoryId   String?
   title        String
+  oromoTitle   String?   // Afaan Oromoo localized title
   amharicTitle String?
   arabicTitle  String?
   description  String?
@@ -459,6 +465,7 @@ model PdfVolume {
   documentId    String
   volumeNumber  Int       @default(1)
   title         String // e.g. "Volume 1", "Juz 1"
+  oromoTitle    String? // Afaan Oromoo volume title
   amharicTitle  String?
   storageKey    String? // e.g. "pdf/bayquna/bayquna-kitab/volume-1.pdf"
   remoteUrl     String? // Streaming / download URL

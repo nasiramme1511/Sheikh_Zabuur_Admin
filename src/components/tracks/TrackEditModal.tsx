@@ -22,6 +22,7 @@ export interface AudioTrackItem {
   trackNumber: number;
   trackOrder: number;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   duration: number;
@@ -33,11 +34,13 @@ export interface AudioTrackItem {
   module?: {
     id: string;
     title: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
   };
   category?: {
     id: string;
     title: string;
+    oromoTitle?: string | null;
     amharicTitle?: string | null;
   };
 }
@@ -56,7 +59,7 @@ export function TrackEditModal({
   onSuccess,
 }: TrackEditModalProps) {
   const [title, setTitle] = useState('');
-  const [amharicTitle, setAmharicTitle] = useState('');
+  const [oromoTitle, setOromoTitle] = useState('');
   const [arabicTitle, setArabicTitle] = useState('');
   const [trackNumber, setTrackNumber] = useState(1);
   const [isPublished, setIsPublished] = useState(true);
@@ -73,7 +76,7 @@ export function TrackEditModal({
   useEffect(() => {
     if (track) {
       setTitle(track.title || '');
-      setAmharicTitle(track.amharicTitle || '');
+      setOromoTitle(track.oromoTitle || track.amharicTitle || '');
       setArabicTitle(track.arabicTitle || '');
       setTrackNumber(track.trackNumber || 1);
       setIsPublished(track.isPublished ?? true);
@@ -211,7 +214,8 @@ export function TrackEditModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          amharicTitle: amharicTitle.trim() || null,
+          oromoTitle: oromoTitle.trim() || null,
+          amharicTitle: oromoTitle.trim() || null,
           arabicTitle: arabicTitle.trim() || null,
           trackNumber: Number(trackNumber),
           isPublished,
@@ -274,9 +278,9 @@ export function TrackEditModal({
               <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                 {track.module?.title || track.moduleId}
               </p>
-              {track.module?.amharicTitle && (
+              {(track.module?.oromoTitle || track.module?.amharicTitle) && (
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">
-                  {track.module.amharicTitle}
+                  {track.module?.oromoTitle || track.module?.amharicTitle}
                 </p>
               )}
             </div>
@@ -285,9 +289,9 @@ export function TrackEditModal({
               <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                 {track.category?.title || track.categoryId}
               </p>
-              {track.category?.amharicTitle && (
+              {(track.category?.oromoTitle || track.category?.amharicTitle) && (
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">
-                  {track.category.amharicTitle}
+                  {track.category?.oromoTitle || track.category?.amharicTitle}
                 </p>
               )}
             </div>
@@ -326,14 +330,14 @@ export function TrackEditModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Amharic Title (የአማርኛ ርዕስ)
+                Afaan Oromoo Title (Mata Duree Afaan Oromoo)
               </label>
               <input
                 type="text"
-                value={amharicTitle}
-                onChange={(e) => setAmharicTitle(e.target.value)}
+                value={oromoTitle}
+                onChange={(e) => setOromoTitle(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="ለምሳሌ፡ ደርስ ፩"
+                placeholder="Fkn: Darsii 01"
               />
             </div>
 

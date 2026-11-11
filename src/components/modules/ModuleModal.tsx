@@ -8,6 +8,7 @@ export interface ModuleItem {
   slug: string;
   name: string;
   title?: string | null;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -42,7 +43,7 @@ export function ModuleModal({
 
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
-  const [amharicTitle, setAmharicTitle] = useState('');
+  const [oromoTitle, setOromoTitle] = useState('');
   const [arabicTitle, setArabicTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sortOrder, setSortOrder] = useState(1);
@@ -56,7 +57,7 @@ export function ModuleModal({
     if (module) {
       setSlug(module.slug || module.id);
       setName(module.name || module.title || '');
-      setAmharicTitle(module.amharicTitle || '');
+      setOromoTitle(module.oromoTitle || module.amharicTitle || '');
       setArabicTitle(module.arabicTitle || '');
       setDescription(module.description || '');
       setSortOrder(module.sortOrder ?? module.order ?? 1);
@@ -64,7 +65,7 @@ export function ModuleModal({
     } else {
       setSlug('');
       setName('');
-      setAmharicTitle('');
+      setOromoTitle('');
       setArabicTitle('');
       setDescription('');
       setSortOrder(1);
@@ -97,7 +98,8 @@ export function ModuleModal({
       const payload = isEdit
         ? {
             name: name.trim(),
-            amharicTitle: amharicTitle.trim() || null,
+            oromoTitle: oromoTitle.trim() || null,
+            amharicTitle: oromoTitle.trim() || null,
             arabicTitle: arabicTitle.trim() || null,
             description: description.trim() || null,
             sortOrder: Number(sortOrder),
@@ -106,7 +108,8 @@ export function ModuleModal({
         : {
             slug: slug.trim().toLowerCase(),
             name: name.trim(),
-            amharicTitle: amharicTitle.trim() || null,
+            oromoTitle: oromoTitle.trim() || null,
+            amharicTitle: oromoTitle.trim() || null,
             arabicTitle: arabicTitle.trim() || null,
             description: description.trim() || null,
             sortOrder: Number(sortOrder),
@@ -228,13 +231,13 @@ export function ModuleModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Amharic Title (የአማርኛ ርዕስ)
+                Afaan Oromoo Title (Mata Duree Afaan Oromoo)
               </label>
               <input
                 type="text"
-                value={amharicTitle}
-                onChange={(e) => setAmharicTitle(e.target.value)}
-                placeholder="ለምሳሌ፡ አል-በይቁንያህ"
+                value={oromoTitle}
+                onChange={(e) => setOromoTitle(e.target.value)}
+                placeholder="Fkn: Al-Bayquuniyyaa"
                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -345,3 +348,4 @@ export function ModuleModal({
     </div>
   );
 }
+

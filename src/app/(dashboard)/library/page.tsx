@@ -1,35 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useTransition } from 'react';
-import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { TrackEditModal, AudioTrackItem } from '@/components/tracks/TrackEditModal';
-import { formatBytes, formatDuration } from '@/lib/serialize';
+import { AudioTrackItem, TrackEditModal } from '@/components/tracks/TrackEditModal';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { formatBytes, formatDuration } from '@/lib/serialize';
 import {
-  Search,
-  RefreshCw,
-  Play,
-  Pause,
-  Edit2,
-  Music,
-  ChevronLeft,
-  ChevronRight,
-  FileQuestion,
-  Loader2,
-  X,
+    ChevronLeft,
+    ChevronRight,
+    Edit2,
+    FileQuestion,
+    Loader2,
+    Music,
+    Pause,
+    Play,
+    RefreshCw,
+    Search,
+    X,
 } from 'lucide-react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 
 interface ModuleOption {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
 }
 
 interface CategoryOption {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   moduleId: string;
 }
@@ -179,7 +181,16 @@ export default function AudioLibraryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, limit, debouncedSearch, selectedModule, selectedCategory, statusFilter, sortBy, sortOrder]);
+  }, [
+    page,
+    limit,
+    debouncedSearch,
+    selectedModule,
+    selectedCategory,
+    statusFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     fetchTracks();
@@ -191,9 +202,7 @@ export default function AudioLibraryPage() {
     : categories;
 
   const handleTrackUpdated = (updated: AudioTrackItem) => {
-    setTracks((prev) =>
-      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
-    );
+    setTracks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
   };
 
   return (
@@ -226,7 +235,7 @@ export default function AudioLibraryPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title, Amharic title, track ID, or file name..."
+              placeholder="Search by title, Afaan Oromoo title, track ID, or file name..."
               className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             {search && (
@@ -253,7 +262,7 @@ export default function AudioLibraryPage() {
               <option value="">All 8 Modules</option>
               {modules.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.title} {m.amharicTitle ? `(${m.amharicTitle})` : ''}
+                  {m.title} {m.oromoTitle || m.amharicTitle ? `(${m.oromoTitle || m.amharicTitle})` : ''}
                 </option>
               ))}
             </select>
@@ -298,7 +307,9 @@ export default function AudioLibraryPage() {
         {/* Active Filters Summary & Sort Options */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span>Showing {tracks.length} of {totalTracks.toLocaleString()} tracks</span>
+            <span>
+              Showing {tracks.length} of {totalTracks.toLocaleString()} tracks
+            </span>
             {(selectedModule || selectedCategory || statusFilter !== 'all' || debouncedSearch) && (
               <button
                 onClick={() => {
@@ -438,9 +449,9 @@ export default function AudioLibraryPage() {
                         <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
                           {track.title}
                         </div>
-                        {track.amharicTitle && (
+                        {(track.oromoTitle || track.amharicTitle) && (
                           <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-sans truncate mt-0.5">
-                            {track.amharicTitle}
+                            {track.oromoTitle || track.amharicTitle}
                           </div>
                         )}
                         <div className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
@@ -465,14 +476,14 @@ export default function AudioLibraryPage() {
                       {/* Duration & Size */}
                       <td className="py-3 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-400">
                         <div>{formatDuration(track.duration)}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{formatBytes(track.fileSize)}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {formatBytes(track.fileSize)}
+                        </div>
                       </td>
 
                       {/* Publication Status */}
                       <td className="py-3 px-4">
-                        <StatusBadge
-                          status={track.isPublished ? 'published' : 'draft'}
-                        />
+                        <StatusBadge status={track.isPublished ? 'published' : 'draft'} />
                       </td>
 
                       {/* Actions */}
@@ -530,8 +541,9 @@ export default function AudioLibraryPage() {
         {/* Pagination Bar */}
         <div className="p-4 bg-slate-50/60 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
           <div>
-            Showing <span className="font-semibold">{Math.min(totalTracks, (page - 1) * limit + 1)}</span> to{' '}
-            <span className="font-semibold">{Math.min(totalTracks, page * limit)}</span> of{' '}
+            Showing{' '}
+            <span className="font-semibold">{Math.min(totalTracks, (page - 1) * limit + 1)}</span>{' '}
+            to <span className="font-semibold">{Math.min(totalTracks, page * limit)}</span> of{' '}
             <span className="font-semibold">{totalTracks.toLocaleString()}</span> entries
           </div>
 

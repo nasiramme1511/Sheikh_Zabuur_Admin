@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const updatePdfSchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').optional(),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   arabicTitle: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -88,7 +89,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       where: { id },
       data: {
         title: updateData.title ?? existingDoc.title,
-        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : existingDoc.amharicTitle,
+        oromoTitle: updateData.oromoTitle !== undefined ? updateData.oromoTitle : (updateData.amharicTitle !== undefined ? updateData.amharicTitle : existingDoc.oromoTitle),
+        amharicTitle: updateData.amharicTitle !== undefined ? updateData.amharicTitle : (updateData.oromoTitle !== undefined ? updateData.oromoTitle : existingDoc.amharicTitle),
         arabicTitle: updateData.arabicTitle !== undefined ? updateData.arabicTitle : existingDoc.arabicTitle,
         description: updateData.description !== undefined ? updateData.description : existingDoc.description,
         author: updateData.author !== undefined ? updateData.author : existingDoc.author,
@@ -211,3 +213,4 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to process document deletion' }, { status: 500 });
   }
 }
+

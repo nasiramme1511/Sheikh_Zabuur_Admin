@@ -7,6 +7,7 @@ export interface MobileCategory {
   moduleId: string;
   parentId: string | null;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -17,6 +18,7 @@ export interface MobileCategory {
 export interface MobileModule {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -32,6 +34,7 @@ export interface MobileTrack {
   categoryId: string;
   parentId: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   originalFilename?: string | null;
@@ -52,6 +55,7 @@ export interface MobileTrack {
 export interface MobilePdfVolume {
   volumeNumber: number;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   remoteUrl: string;
   fileSizeBytes: number;
@@ -66,6 +70,7 @@ export interface MobilePdfDocument {
   moduleId: string;
   categoryId?: string | null;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   arabicTitle?: string | null;
   description?: string | null;
@@ -153,11 +158,7 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     }),
     prisma.audioTrack.findMany({
       where: { isPublished: true, archivedAt: null },
-      orderBy: [
-        { moduleId: 'asc' },
-        { categoryId: 'asc' },
-        { sortOrder: 'asc' },
-      ],
+      orderBy: [{ moduleId: 'asc' }, { categoryId: 'asc' }, { sortOrder: 'asc' }],
       include: {
         category: {
           select: { moduleId: true },
@@ -237,7 +238,8 @@ export async function compileCatalog(version: string): Promise<CompilationResult
       categoryId: t.categoryId,
       parentId: t.parentId || t.categoryId,
       title: trackTitle,
-      amharicTitle: t.amharicTitle || null,
+      oromoTitle: t.oromoTitle || t.amharicTitle || null,
+      amharicTitle: t.amharicTitle || t.oromoTitle || null,
       arabicTitle: t.arabicTitle || null,
       originalFilename: t.originalFilename || null,
       relativePath: t.relativePath || null,
@@ -264,10 +266,7 @@ export async function compileCatalog(version: string): Promise<CompilationResult
       track.categoryId,
       (categoryTrackCountMap.get(track.categoryId) || 0) + 1
     );
-    moduleTrackCountMap.set(
-      track.moduleId,
-      (moduleTrackCountMap.get(track.moduleId) || 0) + 1
-    );
+    moduleTrackCountMap.set(track.moduleId, (moduleTrackCountMap.get(track.moduleId) || 0) + 1);
   }
 
   let totalCategoriesCount = 0;
@@ -280,7 +279,8 @@ export async function compileCatalog(version: string): Promise<CompilationResult
         moduleId: c.moduleId,
         parentId: c.parentId || null,
         title: c.name || c.title || c.id,
-        amharicTitle: c.amharicTitle || null,
+        oromoTitle: c.oromoTitle || c.amharicTitle || null,
+        amharicTitle: c.amharicTitle || c.oromoTitle || null,
         arabicTitle: c.arabicTitle || null,
         description: c.description || null,
         trackCount: categoryTrackCountMap.get(c.id) || 0,
@@ -291,7 +291,8 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     return {
       id: m.id,
       title: m.name || m.title || m.id,
-      amharicTitle: m.amharicTitle || null,
+      oromoTitle: m.oromoTitle || m.amharicTitle || null,
+      amharicTitle: m.amharicTitle || m.oromoTitle || null,
       arabicTitle: m.arabicTitle || null,
       description: m.description || null,
       order: m.sortOrder ?? m.order ?? 0,
@@ -310,14 +311,16 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     moduleId: doc.moduleId,
     categoryId: doc.categoryId || null,
     title: doc.title,
-    amharicTitle: doc.amharicTitle || null,
+    oromoTitle: doc.oromoTitle || doc.amharicTitle || null,
+    amharicTitle: doc.amharicTitle || doc.oromoTitle || null,
     arabicTitle: doc.arabicTitle || null,
     description: doc.description || null,
     author: doc.author || null,
     volumes: doc.volumes.map((vol) => ({
       volumeNumber: vol.volumeNumber,
       title: vol.title,
-      amharicTitle: vol.amharicTitle || null,
+      oromoTitle: vol.oromoTitle || vol.amharicTitle || null,
+      amharicTitle: vol.amharicTitle || vol.oromoTitle || null,
       remoteUrl: vol.remoteUrl || '',
       fileSizeBytes: Number(vol.fileSizeBytes),
       pageCount: vol.pageCount || null,
@@ -402,4 +405,3 @@ export async function compileCatalog(version: string): Promise<CompilationResult
     },
   };
 }
-

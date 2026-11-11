@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic';
 
 const updateAnnouncementSchema = z.object({
   title: z.string().min(1, 'Title is required').optional(),
+  oromoTitle: z.string().nullable().optional(),
   amharicTitle: z.string().nullable().optional(),
   content: z.string().min(1, 'Content is required').optional(),
+  oromoContent: z.string().nullable().optional(),
   amharicContent: z.string().nullable().optional(),
   type: z.enum(['info', 'warning', 'maintenance', 'new_content']).optional(),
   priority: z.number().int().optional(),
@@ -56,14 +58,30 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   const data = parseResult.data;
 
+  const titleVal =
+    data.oromoTitle !== undefined
+      ? data.oromoTitle
+      : data.amharicTitle !== undefined
+        ? data.amharicTitle
+        : undefined;
+
+  const contentVal =
+    data.oromoContent !== undefined
+      ? data.oromoContent
+      : data.amharicContent !== undefined
+        ? data.amharicContent
+        : undefined;
+
   try {
     const updated = await prisma.announcement.update({
       where: { id },
       data: {
         title: data.title ?? existing.title,
-        amharicTitle: data.amharicTitle !== undefined ? data.amharicTitle : existing.amharicTitle,
+        oromoTitle: titleVal !== undefined ? titleVal : existing.oromoTitle,
+        amharicTitle: titleVal !== undefined ? titleVal : existing.amharicTitle,
         content: data.content ?? existing.content,
-        amharicContent: data.amharicContent !== undefined ? data.amharicContent : existing.amharicContent,
+        oromoContent: contentVal !== undefined ? contentVal : existing.oromoContent,
+        amharicContent: contentVal !== undefined ? contentVal : existing.amharicContent,
         type: data.type ?? existing.type,
         priority: data.priority ?? existing.priority,
         isActive: data.isActive !== undefined ? data.isActive : existing.isActive,

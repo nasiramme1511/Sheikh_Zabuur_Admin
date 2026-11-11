@@ -20,8 +20,10 @@ import {
 interface AnnouncementItem {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
   content: string;
+  oromoContent?: string | null;
   amharicContent?: string | null;
   type: 'info' | 'warning' | 'maintenance' | 'new_content';
   priority: number;
@@ -48,9 +50,9 @@ export default function AnnouncementsPage() {
 
   // Form State
   const [title, setTitle] = useState('');
-  const [amharicTitle, setAmharicTitle] = useState('');
+  const [oromoTitle, setOromoTitle] = useState('');
   const [content, setContent] = useState('');
-  const [amharicContent, setAmharicContent] = useState('');
+  const [oromoContent, setOromoContent] = useState('');
   const [type, setType] = useState<'info' | 'warning' | 'maintenance' | 'new_content'>('info');
   const [priority, setPriority] = useState(0);
   const [isActive, setIsActive] = useState(true);
@@ -83,9 +85,9 @@ export default function AnnouncementsPage() {
   const openCreateModal = () => {
     setEditingItem(null);
     setTitle('');
-    setAmharicTitle('');
+    setOromoTitle('');
     setContent('');
-    setAmharicContent('');
+    setOromoContent('');
     setType('info');
     setPriority(0);
     setIsActive(true);
@@ -100,9 +102,9 @@ export default function AnnouncementsPage() {
   const openEditModal = (item: AnnouncementItem) => {
     setEditingItem(item);
     setTitle(item.title);
-    setAmharicTitle(item.amharicTitle || '');
+    setOromoTitle(item.oromoTitle || item.amharicTitle || '');
     setContent(item.content);
-    setAmharicContent(item.amharicContent || '');
+    setOromoContent(item.oromoContent || item.amharicContent || '');
     setType(item.type);
     setPriority(item.priority);
     setIsActive(item.isActive);
@@ -126,9 +128,11 @@ export default function AnnouncementsPage() {
 
     const payload = {
       title: title.trim(),
-      amharicTitle: amharicTitle.trim() || null,
+      oromoTitle: oromoTitle.trim() || null,
+      amharicTitle: oromoTitle.trim() || null,
       content: content.trim(),
-      amharicContent: amharicContent.trim() || null,
+      oromoContent: oromoContent.trim() || null,
+      amharicContent: oromoContent.trim() || null,
       type,
       priority: Number(priority),
       isActive,
@@ -217,7 +221,7 @@ export default function AnnouncementsPage() {
             In-App Announcements & System Banners
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Broadcast banners and alerts to mobile users in English and Amharic with priority scheduling.
+            Broadcast banners and alerts to mobile users in English and Afaan Oromoo with priority scheduling.
           </p>
         </div>
 
@@ -291,14 +295,19 @@ export default function AnnouncementsPage() {
                       <div className="font-semibold text-slate-900 dark:text-slate-100">
                         {item.title}
                       </div>
-                      {item.amharicTitle && (
+                      {(item.oromoTitle || item.amharicTitle) && (
                         <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans mt-0.5">
-                          {item.amharicTitle}
+                          {item.oromoTitle || item.amharicTitle}
                         </div>
                       )}
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
                         {item.content}
                       </p>
+                      {(item.oromoContent || item.amharicContent) && (
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-1 italic mt-0.5">
+                          {item.oromoContent || item.amharicContent}
+                        </p>
+                      )}
                     </td>
 
                     {/* Schedule */}
@@ -401,13 +410,13 @@ export default function AnnouncementsPage() {
 
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700 dark:text-slate-300">
-                    Amharic Title (የአማርኛ ርዕስ)
+                    Afaan Oromoo Title (Mata Duree Afaan Oromoo)
                   </label>
                   <input
                     type="text"
-                    value={amharicTitle}
-                    onChange={(e) => setAmharicTitle(e.target.value)}
-                    placeholder="ለምሳሌ፡ አዲስ የተፍሲር ደርሶች ተለቀዋል"
+                    value={oromoTitle}
+                    onChange={(e) => setOromoTitle(e.target.value)}
+                    placeholder="Fkn: Darsiiwwan Tafsiiraa Haaraa Gadhiifamaniiru"
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -429,13 +438,13 @@ export default function AnnouncementsPage() {
 
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Amharic Content (የአማርኛ ይዘት)
+                  Afaan Oromoo Content (Qabiyyee Afaan Oromoo)
                 </label>
                 <textarea
                   rows={2}
-                  value={amharicContent}
-                  onChange={(e) => setAmharicContent(e.target.value)}
-                  placeholder="የማስታወቂያው ዝርዝር መረጃ በአማርኛ..."
+                  value={oromoContent}
+                  onChange={(e) => setOromoContent(e.target.value)}
+                  placeholder="Oodeeffannoo beeksisaa Afaan Oromootiin..."
                   className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>

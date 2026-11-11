@@ -20,6 +20,7 @@ import {
 interface ModuleOption {
   id: string;
   title: string;
+  oromoTitle?: string | null;
   amharicTitle?: string | null;
 }
 
@@ -84,9 +85,9 @@ export default function CategoriesPage() {
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchTitle = c.title.toLowerCase().includes(q);
-      const matchAmharic = c.amharicTitle?.toLowerCase().includes(q);
+      const matchOromo = (c.oromoTitle || c.amharicTitle)?.toLowerCase().includes(q);
       const matchId = c.id.toLowerCase().includes(q);
-      return matchTitle || matchAmharic || matchId;
+      return matchTitle || matchOromo || matchId;
     }
 
     return true;
@@ -134,7 +135,7 @@ export default function CategoriesPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by category title, Amharic name, or ID..."
+            placeholder="Search by category title, Afaan Oromoo name, or ID..."
             className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
           {search && (
@@ -230,9 +231,9 @@ export default function CategoriesPage() {
                             <div className="font-semibold text-slate-900 dark:text-slate-100">
                               {cat.title}
                             </div>
-                            {cat.amharicTitle && (
+                            {(cat.oromoTitle || cat.amharicTitle) && (
                               <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-sans mt-0.5">
-                                {cat.amharicTitle}
+                                {cat.oromoTitle || cat.amharicTitle}
                               </div>
                             )}
                           </div>
