@@ -83,7 +83,7 @@ export async function GET() {
       console.error('[Health Check] Database check failed:', err instanceof Error ? err.message : err);
       dbHealth = {
         status: 'unhealthy',
-        message: 'Database service is currently unreachable',
+        message: err instanceof Error ? err.message : String(err),
       };
     }
   } else {
