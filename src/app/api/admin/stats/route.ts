@@ -13,6 +13,8 @@ export async function GET() {
       archivedTracks,
       totalModules,
       totalCategories,
+      totalPdfDocuments,
+      totalPdfVolumes,
       activeRelease,
       storageAggregate,
       durationAggregate,
@@ -23,6 +25,8 @@ export async function GET() {
       prisma.audioTrack.count({ where: { archivedAt: { not: null } } }),
       prisma.audioModule.count({ where: { isActive: true } }),
       prisma.audioCategory.count({ where: { isActive: true } }),
+      prisma.pdfDocument.count(),
+      prisma.pdfVolume.count(),
       prisma.catalogRelease.findFirst({
         where: { status: 'published' },
         orderBy: { publishedAt: 'desc' },
@@ -54,6 +58,10 @@ export async function GET() {
         },
         categories: {
           total: totalCategories,
+        },
+        pdfs: {
+          total: totalPdfDocuments,
+          volumes: totalPdfVolumes,
         },
         storage: {
           totalSizeBytes: totalSizeBytes.toString(),

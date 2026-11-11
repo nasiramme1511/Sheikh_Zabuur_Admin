@@ -1,10 +1,12 @@
 import {
   Bell,
+  BookOpen,
   ClipboardList,
   FolderTree,
   Layers,
   LayoutDashboard,
   Music,
+  Palette,
   Send,
   Settings,
   ShieldAlert,
@@ -65,15 +67,31 @@ export const APP_NAVIGATION: NavItemConfig[] = [
     group: 'content',
   },
   {
+    name: 'PDF Documents',
+    href: '/pdf',
+    icon: BookOpen,
+    description: 'Manage Islamic texts, Kitāb references, and multi-volume PDFs',
+    requiredPermission: 'pdf:view',
+    group: 'content',
+  },
+  {
     name: 'Catalog Releases',
     href: '/releases',
     icon: Layers,
     description: 'Compile, publish, and rollback mobile catalog releases',
-    requiredPermission: 'releases:read',
+    requiredPermission: 'catalog:view',
     group: 'content',
   },
 
   // Operations Tier
+  {
+    name: 'App Branding',
+    href: '/branding',
+    icon: Palette,
+    description: 'Logos, colors, artwork, and remote mobile branding assets',
+    requiredPermission: 'branding:view',
+    group: 'operations',
+  },
   {
     name: 'Announcements',
     href: '/announcements',

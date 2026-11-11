@@ -49,6 +49,42 @@ export interface MobileTrack {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface MobilePdfVolume {
+  volumeNumber: number;
+  title: string;
+  amharicTitle?: string | null;
+  remoteUrl: string;
+  fileSizeBytes: number;
+  pageCount?: number | null;
+  sha256?: string | null;
+  versionNumber: number;
+}
+
+export interface MobilePdfDocument {
+  id: string;
+  documentId: string;
+  moduleId: string;
+  categoryId?: string | null;
+  title: string;
+  amharicTitle?: string | null;
+  arabicTitle?: string | null;
+  description?: string | null;
+  author?: string | null;
+  volumes: MobilePdfVolume[];
+}
+
+export interface MobileBrandingConfig {
+  appName: string;
+  tagline?: string | null;
+  primaryColor: string;
+  secondaryColor?: string | null;
+  inAppLogoUrl?: string | null;
+  logoEmblemUrl?: string | null;
+  splashScreenUrl?: string | null;
+  loginArtworkUrl?: string | null;
+  bannerUrls: string[];
+}
+
 export interface MobileCatalog {
   metadata: {
     version: string;
@@ -56,10 +92,13 @@ export interface MobileCatalog {
     totalModules: number;
     totalCategories: number;
     totalTracks: number;
+    totalPdfs?: number;
     totalSizeBytes: number;
   };
   modules: MobileModule[];
   tracks: MobileTrack[];
+  pdfs?: MobilePdfDocument[];
+  branding?: MobileBrandingConfig | null;
 }
 
 export interface MobileCatalogVersionManifest {
@@ -100,8 +139,8 @@ export async function compileCatalog(version: string): Promise<CompilationResult
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. Fetch modules, categories, and published tracks
-  const [modulesData, tracksData] = await Promise.all([
+  // 1. Fetch modules, categories, published tracks, published PDFs, and active branding
+  const [modulesData, tracksData, pdfsData, currentBranding, minVersionSetting] = await Promise.all([
     prisma.audioModule.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
@@ -124,6 +163,22 @@ export async function compileCatalog(version: string): Promise<CompilationResult
           select: { moduleId: true },
         },
       },
+    }),
+    prisma.pdfDocument.findMany({
+      where: { isPublished: true, archivedAt: null },
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        volumes: {
+          where: { isPublished: true, archivedAt: null },
+          orderBy: { volumeNumber: 'asc' },
+        },
+      },
+    }),
+    prisma.appBranding.findFirst({
+      where: { isCurrent: true },
+    }),
+    prisma.systemSetting.findUnique({
+      where: { key: 'min_mobile_version' },
     }),
   ]);
 
@@ -248,6 +303,44 @@ export async function compileCatalog(version: string): Promise<CompilationResult
 
   const nowIso = new Date().toISOString();
 
+  // Compile Published PDFs
+  const pdfs: MobilePdfDocument[] = pdfsData.map((doc) => ({
+    id: doc.id,
+    documentId: doc.documentId,
+    moduleId: doc.moduleId,
+    categoryId: doc.categoryId || null,
+    title: doc.title,
+    amharicTitle: doc.amharicTitle || null,
+    arabicTitle: doc.arabicTitle || null,
+    description: doc.description || null,
+    author: doc.author || null,
+    volumes: doc.volumes.map((vol) => ({
+      volumeNumber: vol.volumeNumber,
+      title: vol.title,
+      amharicTitle: vol.amharicTitle || null,
+      remoteUrl: vol.remoteUrl || '',
+      fileSizeBytes: Number(vol.fileSizeBytes),
+      pageCount: vol.pageCount || null,
+      sha256: vol.sha256 || null,
+      versionNumber: vol.versionNumber,
+    })),
+  }));
+
+  // Compile Active App Branding
+  const branding: MobileBrandingConfig | null = currentBranding
+    ? {
+        appName: currentBranding.appName,
+        tagline: currentBranding.tagline || null,
+        primaryColor: currentBranding.primaryColor,
+        secondaryColor: currentBranding.secondaryColor || null,
+        inAppLogoUrl: currentBranding.inAppLogoUrl || null,
+        logoEmblemUrl: currentBranding.logoEmblemUrl || null,
+        splashScreenUrl: currentBranding.splashScreenUrl || null,
+        loginArtworkUrl: currentBranding.loginArtworkUrl || null,
+        bannerUrls: (currentBranding.bannerUrls as string[]) || [],
+      }
+    : null;
+
   const catalog: MobileCatalog = {
     metadata: {
       version,
@@ -255,10 +348,13 @@ export async function compileCatalog(version: string): Promise<CompilationResult
       totalModules: modules.length,
       totalCategories: totalCategoriesCount,
       totalTracks: tracks.length,
+      totalPdfs: pdfs.length,
       totalSizeBytes,
     },
     modules,
     tracks,
+    pdfs,
+    branding,
   };
 
   const catalogJson = JSON.stringify(catalog, null, 2);
@@ -270,7 +366,7 @@ export async function compileCatalog(version: string): Promise<CompilationResult
   const versionManifest: MobileCatalogVersionManifest = {
     version,
     updatedAt: nowIso,
-    minAppVersion: '1.0.0',
+    minAppVersion: minVersionSetting?.value || '1.0.0',
     totalModules: modules.length,
     totalTracks: tracks.length,
     totalSizeBytes,

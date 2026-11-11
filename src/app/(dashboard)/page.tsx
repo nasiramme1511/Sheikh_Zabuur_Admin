@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Volume2,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
@@ -28,6 +29,10 @@ interface PlatformStats {
   };
   categories: {
     total: number;
+  };
+  pdfs?: {
+    total: number;
+    volumes: number;
   };
   storage: {
     totalSizeBytes: string;
@@ -105,7 +110,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             label="Total Audio Tracks"
             value={stats ? stats.tracks.total.toLocaleString() : '1,731+'}
@@ -117,6 +122,19 @@ export default function DashboardPage() {
             icon={Music}
             color="emerald"
             href="/library"
+          />
+
+          <StatCard
+            label="Kitāb Documents"
+            value={stats?.pdfs ? stats.pdfs.total.toLocaleString() : '0'}
+            subtext={
+              stats?.pdfs
+                ? `${stats.pdfs.volumes} Volumes indexed`
+                : 'Islamic texts & treatises'
+            }
+            icon={BookOpen}
+            color="teal"
+            href="/pdf"
           />
 
           <StatCard

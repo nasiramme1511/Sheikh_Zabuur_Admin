@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, Loader2, AlertCircle, Lock } from 'lucide-react';
+import { X, Save, Loader2, AlertCircle, Lock, Trash2 } from 'lucide-react';
 
 export interface CategoryItem {
   id: string;
@@ -28,6 +28,7 @@ interface CategoryEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (updatedCategory: CategoryItem) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function CategoryEditModal({
@@ -35,6 +36,7 @@ export function CategoryEditModal({
   isOpen,
   onClose,
   onSuccess,
+  onDelete,
 }: CategoryEditModalProps) {
   const [title, setTitle] = useState('');
   const [amharicTitle, setAmharicTitle] = useState('');
@@ -42,6 +44,7 @@ export function CategoryEditModal({
   const [order, setOrder] = useState(0);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,6 +95,29 @@ export function CategoryEditModal({
       setError(msg);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!category || !onDelete) return;
+    if (!confirm(`Are you sure you want to delete category "${category.title}"?`)) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/admin/categories/${category.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete category');
+      }
+
+      onDelete(category.id);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete category');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -183,33 +209,49 @@ export function CategoryEditModal({
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
+        <div className="flex items-center justify-between px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800">
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting || isSubmitting}
+              className="px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg flex items-center gap-1.5 border border-red-200 dark:border-red-900/50 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              <span>Delete Category</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting || isDeleting}
+              className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || isDeleting}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

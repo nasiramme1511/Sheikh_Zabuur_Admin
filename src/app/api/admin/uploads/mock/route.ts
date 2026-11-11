@@ -41,17 +41,33 @@ export async function PUT(req: NextRequest) {
   }
 }
 
+function getContentTypeFromKey(key: string): string {
+  const lower = key.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
+  if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
+  if (lower.endsWith('.ogg')) return 'audio/ogg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
+  if (lower.endsWith('.aac')) return 'audio/aac';
+  return 'audio/mpeg';
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const key = searchParams.get('key') || '';
 
   const filePath = getSafeFilePath(key);
   if (!fs.existsSync(filePath)) {
-    return new NextResponse('Audio file not found in local mock cache. Re-upload file to stream locally.', {
+    return new NextResponse('File not found in local mock cache. Re-upload file to preview.', {
       status: 404,
       headers: { 'Content-Type': 'text/plain' },
     });
   }
+
+  const contentType = getContentTypeFromKey(key);
 
   try {
     const stat = fs.statSync(filePath);
@@ -79,7 +95,7 @@ export async function GET(req: NextRequest) {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': String(chunkSize),
-          'Content-Type': 'audio/mpeg',
+          'Content-Type': contentType,
           'Access-Control-Allow-Origin': '*',
         },
       });
@@ -98,7 +114,7 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Length': String(fileSize),
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': contentType,
         'Accept-Ranges': 'bytes',
         'Access-Control-Allow-Origin': '*',
       },

@@ -127,3 +127,85 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   }
 }
 
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  let user;
+  try {
+    user = await requirePermission('tracks:delete');
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized or insufficient permissions' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const permanent = searchParams.get('permanent') === 'true';
+
+  const existingTrack = await prisma.audioTrack.findUnique({
+    where: { id },
+  });
+
+  if (!existingTrack) {
+    return NextResponse.json({ error: 'Track not found' }, { status: 404 });
+  }
+
+  const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  const userAgent = req.headers.get('user-agent') || 'unknown';
+
+  try {
+    if (permanent) {
+      // Permanent delete allowed for draft tracks or Super Admin
+      if (existingTrack.isPublished && user.roleId !== 'SUPER_ADMIN') {
+        return NextResponse.json(
+          { error: 'Published audio tracks cannot be permanently deleted. Use soft archival to preserve mobile offline compatibility.' },
+          { status: 400 }
+        );
+      }
+
+      await prisma.audioTrack.delete({ where: { id } });
+
+      await recordAuditLog({
+        adminUserId: user.id,
+        action: 'TRACK_PERMANENT_DELETE',
+        entityType: 'AudioTrack',
+        entityId: id,
+        details: { trackId: existingTrack.trackId, title: existingTrack.title },
+        ipAddress,
+        userAgent,
+      });
+
+      return NextResponse.json({ success: true, message: 'Audio recording permanently deleted' });
+    } else {
+      // Toggle soft-archive
+      const isArchived = Boolean(existingTrack.archivedAt);
+      const nextArchived = isArchived ? null : new Date();
+
+      const updated = await prisma.audioTrack.update({
+        where: { id },
+        data: {
+          archivedAt: nextArchived,
+          isPublished: nextArchived ? false : existingTrack.isPublished,
+        },
+      });
+
+      await recordAuditLog({
+        adminUserId: user.id,
+        action: nextArchived ? 'TRACK_ARCHIVED' : 'TRACK_RESTORED',
+        entityType: 'AudioTrack',
+        entityId: id,
+        details: { trackId: existingTrack.trackId, archivedAt: nextArchived },
+        ipAddress,
+        userAgent,
+      });
+
+      return NextResponse.json({
+        success: true,
+        archived: Boolean(nextArchived),
+        track: serializeBigInt(updated),
+      });
+    }
+  } catch (err) {
+    console.error(`[API Track DELETE] Failed to delete track ${id}:`, err);
+    return NextResponse.json({ error: 'Failed to delete track' }, { status: 500 });
+  }
+}
+
+

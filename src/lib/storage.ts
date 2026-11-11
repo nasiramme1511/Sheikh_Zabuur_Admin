@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getServerEnv } from './env';
 
@@ -35,12 +41,18 @@ export function isStorageConfigured(): boolean {
   );
 }
 
+export type StorageAssetType = 'audio' | 'pdf' | 'branding';
+
 export interface PresignedUploadOptions {
+  assetType?: StorageAssetType;
   filename: string;
   contentType: string;
-  moduleId: string;
-  categoryId: string;
   fileSize: number;
+  moduleId?: string;
+  categoryId?: string;
+  documentId?: string;
+  volumeNumber?: number;
+  brandingType?: string;
 }
 
 export interface PresignedUploadResult {
@@ -60,20 +72,119 @@ export function sanitizeStorageFilename(rawName: string): string {
 }
 
 /**
+ * Validates MIME types and size constraints before issuing presigned URLs.
+ */
+export function validateUploadFile(
+  contentType: string,
+  fileSize: number,
+  assetType: StorageAssetType
+): { valid: boolean; error?: string } {
+  if (assetType === 'audio') {
+    const validAudioTypes = [
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/mp4',
+      'audio/x-m4a',
+      'audio/m4a',
+      'audio/aac',
+      'audio/wav',
+      'audio/x-wav',
+      'audio/ogg',
+    ];
+    if (!validAudioTypes.includes(contentType.toLowerCase())) {
+      return {
+        valid: false,
+        error: `Unsupported audio format "${contentType}". Supported: MP3, M4A, AAC, WAV, and OGG.`,
+      };
+    }
+    const maxAudioBytes = 250 * 1024 * 1024; // 250 MB
+    if (fileSize > maxAudioBytes) {
+      return {
+        valid: false,
+        error: `Audio file exceeds maximum size limit of 250 MB.`,
+      };
+    }
+  } else if (assetType === 'pdf') {
+    if (contentType.toLowerCase() !== 'application/pdf') {
+      return {
+        valid: false,
+        error: `Unsupported document format "${contentType}". Only PDF documents are supported.`,
+      };
+    }
+    const maxPdfBytes = 100 * 1024 * 1024; // 100 MB
+    if (fileSize > maxPdfBytes) {
+      return {
+        valid: false,
+        error: `PDF document exceeds maximum size limit of 100 MB.`,
+      };
+    }
+  } else if (assetType === 'branding') {
+    const validImageTypes = [
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+      'image/svg+xml',
+    ];
+    if (!validImageTypes.includes(contentType.toLowerCase())) {
+      return {
+        valid: false,
+        error: `Unsupported image format "${contentType}". Supported: PNG, JPEG, WEBP, and SVG.`,
+      };
+    }
+    const maxImageBytes = 15 * 1024 * 1024; // 15 MB
+    if (fileSize > maxImageBytes) {
+      return {
+        valid: false,
+        error: `Branding asset exceeds maximum size limit of 15 MB.`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Builds standard, deterministic object keys:
+ * - audio: audio/{moduleId}/{categoryId}/{timestamp}-{filename}
+ * - pdf:   pdf/{moduleId}/{documentId}/volume-{volumeNumber}.pdf
+ * - branding: branding/{type}/{timestamp}-{filename}
+ */
+export function buildStorageKey(options: PresignedUploadOptions): string {
+  const sanitized = sanitizeStorageFilename(options.filename);
+  const timestamp = Date.now();
+  const assetType = options.assetType || 'audio';
+
+  if (assetType === 'pdf') {
+    const mod = options.moduleId || 'general';
+    const doc = options.documentId || `doc-${timestamp}`;
+    const vol = options.volumeNumber || 1;
+    return `pdf/${mod}/${doc}/volume-${vol}.pdf`;
+  }
+
+  if (assetType === 'branding') {
+    const type = options.brandingType || 'general';
+    return `branding/${type}/${timestamp}-${sanitized}`;
+  }
+
+  // Audio default
+  const mod = options.moduleId || 'general';
+  const cat = options.categoryId || 'default';
+  return `audio/${mod}/${cat}/${timestamp}-${sanitized}`;
+}
+
+/**
  * Generates an S3/Cloudflare R2 presigned PUT URL for direct client-to-cloud upload.
- * Large audio files (30MB-100MB+) bypass Next.js API servers entirely.
+ * Large media files bypass Next.js API servers entirely.
  */
 export async function createPresignedUploadUrl(
   options: PresignedUploadOptions
 ): Promise<PresignedUploadResult> {
   const env = getServerEnv();
   const client = getStorageClient();
+  const storageKey = buildStorageKey(options);
 
-  const sanitized = sanitizeStorageFilename(options.filename);
-  const timestamp = Date.now();
-  const storageKey = `audio/${options.moduleId}/${options.categoryId}/${timestamp}-${sanitized}`;
-
-  // If storage credentials are not provided (e.g. dev mock), return simulated upload route with local streaming URL
+  // If storage credentials are not provided (e.g. dev mock), return simulated upload route
   if (!client || !env.STORAGE_BUCKET_NAME) {
     const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
     const localRemoteUrl = `${appUrl}/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`;
@@ -89,7 +200,7 @@ export async function createPresignedUploadUrl(
 
   const publicBase = env.STORAGE_PUBLIC_BASE_URL
     ? env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')
-    : 'https://audio.sheikhzabur.com';
+    : 'https://cdn.sheikhzabur.com';
 
   const remoteUrl = `${publicBase}/${storageKey}`;
 
@@ -100,8 +211,9 @@ export async function createPresignedUploadUrl(
     ContentLength: options.fileSize,
     Metadata: {
       'original-filename': encodeURIComponent(options.filename),
-      'module-id': options.moduleId,
-      'category-id': options.categoryId,
+      'asset-type': options.assetType || 'audio',
+      'module-id': options.moduleId || '',
+      'category-id': options.categoryId || '',
     },
   });
 
@@ -119,7 +231,9 @@ export async function createPresignedUploadUrl(
 /**
  * Inspects uploaded object headers in storage bucket (if configured)
  */
-export async function verifyUploadedObject(storageKey: string): Promise<{ size: number; contentType?: string } | null> {
+export async function verifyUploadedObject(
+  storageKey: string
+): Promise<{ size: number; contentType?: string } | null> {
   const env = getServerEnv();
   const client = getStorageClient();
 
@@ -144,3 +258,50 @@ export async function verifyUploadedObject(storageKey: string): Promise<{ size: 
   }
 }
 
+/**
+ * Deletes an object from cloud storage bucket
+ */
+export async function deleteStorageObject(storageKey: string): Promise<boolean> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    return true; // Simulation mode succeeds
+  }
+
+  try {
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: env.STORAGE_BUCKET_NAME,
+        Key: storageKey,
+      })
+    );
+    return true;
+  } catch (err) {
+    console.error(`[Storage] Failed to delete object ${storageKey}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Generates a presigned GET URL for secure downloading/reading private files
+ */
+export async function createPresignedDownloadUrl(
+  storageKey: string,
+  expiresInSeconds = 3600
+): Promise<string> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    const appUrl = (env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    return `${appUrl}/api/admin/uploads/mock?key=${encodeURIComponent(storageKey)}`;
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: env.STORAGE_BUCKET_NAME,
+    Key: storageKey,
+  });
+
+  return await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+}

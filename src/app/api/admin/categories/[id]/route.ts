@@ -124,3 +124,85 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  let user;
+  try {
+    user = await requirePermission('tracks:delete');
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized or insufficient permissions' }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  const existing = await prisma.audioCategory.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          tracks: true,
+          children: true,
+          pdfDocuments: true,
+        },
+      },
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+  }
+
+  // Safe deletion check: prevent deleting if tracks, subcategories, or PDFs exist
+  if (
+    existing._count.tracks > 0 ||
+    existing._count.children > 0 ||
+    existing._count.pdfDocuments > 0
+  ) {
+    return NextResponse.json(
+      {
+        error: `Cannot delete category "${existing.title || existing.name}". It contains ${existing._count.tracks} tracks, ${existing._count.children} child subcategories, and ${existing._count.pdfDocuments} PDF documents. Remove or reassign child content first.`,
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.audioCategory.delete({ where: { id } });
+
+      await tx.audioModule.update({
+        where: { id: existing.moduleId },
+        data: {
+          submoduleCount: {
+            decrement: 1,
+          },
+        },
+      });
+    });
+
+    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+
+    await recordAuditLog({
+      adminUserId: user.id,
+      action: 'CATEGORY_DELETED',
+      entityType: 'AudioCategory',
+      entityId: id,
+      ipAddress,
+      userAgent,
+      details: {
+        moduleId: existing.moduleId,
+        slug: existing.slug,
+        name: existing.name || existing.title,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Category "${existing.title || existing.name}" deleted successfully`,
+    });
+  } catch (err) {
+    console.error(`[API Category DELETE] Failed to delete category ${id}:`, err);
+    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
+  }
+}

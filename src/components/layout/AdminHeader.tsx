@@ -1,9 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Activity, ShieldCheck, User, LogOut, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { APP_METADATA } from '@/config/navigation';
+import { Activity, Loader2, LogOut, ShieldCheck, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface AuthUserData {
   id: string;

@@ -60,6 +60,62 @@ export default function AudioLibraryPage() {
   // Edit Modal State
   const [editingTrack, setEditingTrack] = useState<AudioTrackItem | null>(null);
 
+  // Bulk Selection State
+  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
+
+  const toggleSelectTrack = (trackId: string) => {
+    setSelectedTrackIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(trackId)) {
+        next.delete(trackId);
+      } else {
+        next.add(trackId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllPage = () => {
+    if (selectedTrackIds.size === tracks.length && tracks.length > 0) {
+      setSelectedTrackIds(new Set());
+    } else {
+      setSelectedTrackIds(new Set(tracks.map((t) => t.id)));
+    }
+  };
+
+  const executeBulkAction = async (action: 'publish' | 'unpublish' | 'archive' | 'restore') => {
+    if (selectedTrackIds.size === 0) return;
+    setIsBulkProcessing(true);
+    setBulkFeedback(null);
+
+    try {
+      const res = await fetch('/api/admin/tracks/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trackIds: Array.from(selectedTrackIds),
+          action,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to process bulk operation');
+      }
+
+      setBulkFeedback(data.message || `Successfully executed ${action} on ${selectedTrackIds.size} tracks`);
+      setSelectedTrackIds(new Set());
+      await fetchTracks();
+      setTimeout(() => setBulkFeedback(null), 4000);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Bulk action failed');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -302,13 +358,28 @@ export default function AudioLibraryPage() {
         </div>
       </div>
 
+      {/* Bulk Feedback Banner */}
+      {bulkFeedback && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-medium animate-in fade-in">
+          {bulkFeedback}
+        </div>
+      )}
+
       {/* Tracks Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                <th className="py-3 px-4 w-12 text-center">#</th>
+                <th className="py-3 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={tracks.length > 0 && selectedTrackIds.size === tracks.length}
+                    onChange={toggleSelectAllPage}
+                    className="rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </th>
+                <th className="py-3 px-3 w-12 text-center">#</th>
                 <th className="py-3 px-4">Track Information</th>
                 <th className="py-3 px-4">Module & Category</th>
                 <th className="py-3 px-4">Duration & Size</th>
@@ -319,14 +390,14 @@ export default function AudioLibraryPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
               {isLoading && tracks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
                     <span>Loading audio recordings...</span>
                   </td>
                 </tr>
               ) : tracks.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <EmptyState
                       icon={FileQuestion}
                       title="No tracks found"
@@ -338,16 +409,27 @@ export default function AudioLibraryPage() {
                 tracks.map((track) => {
                   const isCurrentPlaying = currentTrack?.id === track.id && isPlaying;
                   const isCurrent = currentTrack?.id === track.id;
+                  const isSelected = selectedTrackIds.has(track.id);
 
                   return (
                     <tr
                       key={track.id}
                       className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
-                        isCurrent ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
+                        isSelected ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : isCurrent ? 'bg-emerald-50/30 dark:bg-emerald-950/20' : ''
                       }`}
                     >
+                      {/* Checkbox */}
+                      <td className="py-3 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectTrack(track.id)}
+                          className="rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Track # */}
-                      <td className="py-3 px-4 text-center font-mono font-medium text-slate-500">
+                      <td className="py-3 px-3 text-center font-mono font-medium text-slate-500">
                         {track.trackNumber}
                       </td>
 
@@ -478,6 +560,60 @@ export default function AudioLibraryPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Bulk Action Bar */}
+      {selectedTrackIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-200 flex items-center gap-4 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white font-bold text-xs">
+              {selectedTrackIds.size}
+            </span>
+            <span className="text-xs font-semibold">Tracks Selected</span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700 dark:bg-slate-300" />
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => executeBulkAction('publish')}
+              disabled={isBulkProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50"
+            >
+              Publish
+            </button>
+            <button
+              onClick={() => executeBulkAction('unpublish')}
+              disabled={isBulkProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 dark:bg-slate-200 dark:hover:bg-slate-300 dark:text-slate-800 transition-colors disabled:opacity-50"
+            >
+              Unpublish
+            </button>
+            <button
+              onClick={() => executeBulkAction('archive')}
+              disabled={isBulkProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition-colors disabled:opacity-50"
+            >
+              Archive
+            </button>
+            <button
+              onClick={() => executeBulkAction('restore')}
+              disabled={isBulkProcessing}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+            >
+              Restore
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700 dark:bg-slate-300" />
+
+          <button
+            onClick={() => setSelectedTrackIds(new Set())}
+            className="text-xs text-slate-400 hover:text-white dark:hover:text-slate-900 transition-colors font-medium"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Edit Modal */}
       <TrackEditModal

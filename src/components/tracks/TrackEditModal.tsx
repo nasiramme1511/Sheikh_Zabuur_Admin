@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Copy,
   Check,
+  UploadCloud,
+  Archive,
 } from 'lucide-react';
 
 export interface AudioTrackItem {
@@ -63,6 +65,11 @@ export function TrackEditModal({
   const [error, setError] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
+  // Replacement audio state
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [replaceProgress, setReplaceProgress] = useState(0);
+
   useEffect(() => {
     if (track) {
       setTitle(track.title || '');
@@ -70,6 +77,8 @@ export function TrackEditModal({
       setArabicTitle(track.arabicTitle || '');
       setTrackNumber(track.trackNumber || 1);
       setIsPublished(track.isPublished ?? true);
+      setReplacementFile(null);
+      setReplaceProgress(0);
       setError(null);
     }
   }, [track]);
@@ -82,6 +91,108 @@ export function TrackEditModal({
     navigator.clipboard.writeText(track.remoteUrl);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2000);
+  };
+
+  const handleReplaceAudio = async () => {
+    if (!replacementFile || !track) return;
+    setIsReplacing(true);
+    setError(null);
+
+    try {
+      // 1. Presign
+      const presignRes = await fetch('/api/admin/uploads/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: replacementFile.name,
+          contentType: replacementFile.type || 'audio/mpeg',
+          fileSize: replacementFile.size,
+          moduleId: track.moduleId,
+          categoryId: track.categoryId,
+        }),
+      });
+
+      if (!presignRes.ok) {
+        const err = await presignRes.json();
+        throw new Error(err.error || 'Failed to get upload authorization');
+      }
+
+      const presignData = await presignRes.json();
+
+      // 2. Direct upload
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', presignData.uploadUrl);
+        xhr.setRequestHeader('Content-Type', replacementFile.type || 'audio/mpeg');
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable) {
+            setReplaceProgress(Math.round((evt.loaded / evt.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Upload failed with status ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error('Network error uploading audio file'));
+        xhr.send(replacementFile);
+      });
+
+      // 3. Inspect duration client-side
+      const audio = new Audio();
+      const objectUrl = URL.createObjectURL(replacementFile);
+      audio.src = objectUrl;
+      const duration = await new Promise<number>((res) => {
+        audio.onloadedmetadata = () => {
+          const dur = Math.round(audio.duration || 0);
+          URL.revokeObjectURL(objectUrl);
+          res(dur);
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          res(track.duration || 60);
+        };
+      });
+
+      // 4. Call replace endpoint
+      const replaceRes = await fetch(`/api/admin/tracks/${track.id}/replace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storageKey: presignData.storageKey,
+          remoteUrl: presignData.remoteUrl,
+          originalFilename: replacementFile.name,
+          fileSize: replacementFile.size,
+          duration: duration || track.duration,
+        }),
+      });
+
+      if (!replaceRes.ok) {
+        const err = await replaceRes.json();
+        throw new Error(err.error || 'Failed to finalize audio replacement');
+      }
+
+      const data = await replaceRes.json();
+      onSuccess(data.track);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to replace audio');
+    } finally {
+      setIsReplacing(false);
+    }
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!track) return;
+    try {
+      const res = await fetch(`/api/admin/tracks/${track.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        onSuccess(data.track);
+        onClose();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -313,37 +424,85 @@ export function TrackEditModal({
                 </a>
               </div>
             </div>
+
+            {/* Replace Audio Recording Section */}
+            <div className="p-3.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <UploadCloud className="w-4 h-4 text-emerald-600" />
+                  Replace Master Audio File
+                </span>
+                <span className="text-[10px] text-slate-400">Preserves immutable track ID</span>
+              </div>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setReplacementFile(e.target.files[0]);
+                  }
+                }}
+                className="text-xs text-slate-600 dark:text-slate-400 file:mr-2.5 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 dark:file:bg-emerald-950 dark:file:text-emerald-300"
+              />
+              {replacementFile && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {replacementFile.name} ({formatBytes(replacementFile.size)})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReplaceAudio}
+                    disabled={isReplacing}
+                    className="px-3 py-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isReplacing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isReplacing ? `Uploading (${replaceProgress}%)` : 'Confirm Replacement'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            onClick={handleArchiveToggle}
+            className="px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200 dark:border-amber-900/50"
           >
-            Cancel
+            <Archive className="w-3.5 h-3.5" />
+            <span>Archive Recording</span>
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving Changes...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

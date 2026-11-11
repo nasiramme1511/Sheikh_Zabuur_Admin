@@ -6,11 +6,22 @@ interface StatCardProps {
   value: string | number;
   subtext?: string;
   icon: React.ComponentType<{ className?: string }>;
-  color?: 'emerald' | 'blue' | 'purple' | 'amber' | 'slate';
+  color?: 'emerald' | 'blue' | 'purple' | 'amber' | 'slate' | 'teal' | 'rose';
   href?: string;
+  variant?: string;
 }
 
 const COLOR_MAP = {
+  teal: {
+    bg: 'bg-teal-50 dark:bg-teal-950/60',
+    text: 'text-teal-600 dark:text-teal-400',
+    hoverBorder: 'hover:border-teal-500/50',
+  },
+  rose: {
+    bg: 'bg-rose-50 dark:bg-rose-950/60',
+    text: 'text-rose-600 dark:text-rose-400',
+    hoverBorder: 'hover:border-rose-500/50',
+  },
   emerald: {
     bg: 'bg-emerald-50 dark:bg-emerald-950/60',
     text: 'text-emerald-600 dark:text-emerald-400',

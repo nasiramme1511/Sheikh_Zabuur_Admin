@@ -101,7 +101,16 @@ export async function PUT(req: NextRequest) {
           create: {
             key,
             value,
-            isPublic: ['min_mobile_version', 'maintenance_mode', 'playback_streaming_enabled'].includes(key),
+            isPublic: [
+              'min_mobile_version',
+              'app_version',
+              'maintenance_mode',
+              'maintenance_message',
+              'offline_downloads_enabled',
+              'playback_streaming_enabled',
+              'announcement_banner_enabled',
+              'pdf_reader_enabled',
+            ].includes(key),
           },
           update: { value },
         })

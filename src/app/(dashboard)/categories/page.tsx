@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CategoryEditModal, CategoryItem } from '@/components/categories/CategoryEditModal';
+import { CategoryCreateModal } from '@/components/categories/CategoryCreateModal';
 import {
   Tags,
   Search,
@@ -13,6 +14,7 @@ import {
   FileQuestion,
   Loader2,
   X,
+  Plus,
 } from 'lucide-react';
 
 interface ModuleOption {
@@ -29,6 +31,7 @@ export default function CategoriesPage() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'root' | 'sub'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -64,6 +67,14 @@ export default function CategoriesPage() {
     );
   };
 
+  const handleCategoryCreated = (newCat: CategoryItem) => {
+    setCategories((prev) => [...prev, newCat]);
+  };
+
+  const handleCategoryDeleted = (deletedId: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== deletedId));
+  };
+
   // Filter categories
   const filteredCategories = categories.filter((c) => {
     if (selectedModule && c.moduleId !== selectedModule) return false;
@@ -95,14 +106,24 @@ export default function CategoriesPage() {
           </p>
         </div>
 
-        <button
-          onClick={fetchData}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Category</span>
+          </button>
+
+          <button
+            onClick={fetchData}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -283,6 +304,17 @@ export default function CategoriesPage() {
         isOpen={!!editingCategory}
         onClose={() => setEditingCategory(null)}
         onSuccess={handleCategoryUpdated}
+        onDelete={handleCategoryDeleted}
+      />
+
+      {/* Category Create Modal */}
+      <CategoryCreateModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        modules={modules}
+        existingCategories={categories}
+        defaultModuleId={selectedModule || modules[0]?.id}
+        onSuccess={handleCategoryCreated}
       />
     </div>
   );

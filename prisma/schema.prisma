@@ -83,6 +83,7 @@ model AdminUser {
   announcements        Announcement[]
   broadcasts           PushNotificationBroadcast[]
   createdAssetVersions AudioAssetVersion[]
+  brandingVersions     AppBranding[]
 
   @@index([roleId])
   @@index([isActive])
@@ -168,8 +169,9 @@ model AudioModule {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  categories AudioCategory[]
-  tracks     AudioTrack[]
+  categories   AudioCategory[]
+  tracks       AudioTrack[]
+  pdfDocuments PdfDocument[]
 
   @@index([sortOrder])
   @@index([isActive])
@@ -196,8 +198,9 @@ model AudioCategory {
 
   module   AudioModule     @relation(fields: [moduleId], references: [id], onDelete: Restrict)
   parent   AudioCategory?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Restrict)
-  children AudioCategory[] @relation("Subcategories")
-  tracks   AudioTrack[]
+  children     AudioCategory[] @relation("Subcategories")
+  tracks       AudioTrack[]
+  pdfDocuments PdfDocument[]
 
   @@unique([moduleId, slug])
   @@index([moduleId])
@@ -417,4 +420,91 @@ model PushNotificationBroadcast {
   @@index([status])
   @@index([createdAt])
   @@map("push_notification_broadcasts")
+}
+
+// ------------------------------------------------------------------------------
+// PDF Kitāb & Document Management
+// ------------------------------------------------------------------------------
+
+model PdfDocument {
+  id           String    @id @default(uuid())
+  documentId   String    @unique // Canonical identifier e.g. "bayquna-kitab", "usul-salasa-pdf"
+  moduleId     String
+  categoryId   String?
+  title        String
+  amharicTitle String?
+  arabicTitle  String?
+  description  String?
+  author       String?
+  isPublished  Boolean   @default(true)
+  archivedAt   DateTime?
+  sortOrder    Int       @default(0)
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  module   AudioModule    @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  category AudioCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  volumes  PdfVolume[]
+
+  @@index([moduleId])
+  @@index([categoryId])
+  @@index([isPublished])
+  @@index([archivedAt])
+  @@map("pdf_documents")
+}
+
+model PdfVolume {
+  id            String    @id @default(uuid())
+  documentId    String
+  volumeNumber  Int       @default(1)
+  title         String // e.g. "Volume 1", "Juz 1"
+  amharicTitle  String?
+  storageKey    String? // e.g. "pdf/bayquna/bayquna-kitab/volume-1.pdf"
+  remoteUrl     String? // Streaming / download URL
+  fileSizeBytes BigInt    @default(0)
+  pageCount     Int       @default(0)
+  sha256        String?
+  isPublished   Boolean   @default(true)
+  archivedAt    DateTime?
+  versionNumber Int       @default(1)
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  document PdfDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, volumeNumber])
+  @@index([documentId])
+  @@index([isPublished])
+  @@map("pdf_volumes")
+}
+
+// ------------------------------------------------------------------------------
+// App Branding Management & Remote Assets
+// ------------------------------------------------------------------------------
+
+model AppBranding {
+  id                     String    @id @default(uuid())
+  version                String    @unique // e.g. "1.0.0", "1.1.0"
+  appName                String    @default("Sheikh Zabuur")
+  tagline                String?   @default("Comprehensive Islamic Audio Library")
+  primaryColor           String    @default("#059669")
+  secondaryColor         String    @default("#f59e0b")
+  inAppLogoUrl           String?
+  logoEmblemUrl          String?
+  splashScreenUrl        String?
+  loginArtworkUrl        String?
+  androidLauncherIconUrl String? // Build asset reference
+  iosAppIconUrl          String? // Build asset reference
+  bannerUrls             Json? // Array of promotional banner objects [{id, imageUrl, linkUrl, title}]
+  isCurrent              Boolean   @default(false)
+  createdById            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  createdBy AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isCurrent])
+  @@map("app_branding")
 }
