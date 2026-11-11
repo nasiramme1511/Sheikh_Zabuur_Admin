@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePermission } from '@/lib/auth';
 import { createPresignedUploadUrl, validateUploadFile } from '@/lib/storage';
+import { MAX_PDF_SIZE_BYTES } from '@/lib/pdf-upload-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ const presignPdfSchema = z.object({
     .number()
     .int()
     .positive('File size must be positive')
-    .max(100 * 1024 * 1024, 'Max PDF size is 100 MB'),
+    .max(MAX_PDF_SIZE_BYTES, `Max PDF size is 500 MiB`),
   moduleId: z.string().optional().default('general'),
   documentId: z.string().optional().default(''),
   volumeNumber: z.coerce.number().int().min(1).default(1),

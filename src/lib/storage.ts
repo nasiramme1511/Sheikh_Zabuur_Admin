@@ -4,11 +4,21 @@ import {
   HeadObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { getServerEnv } from './env';
+import {
+  MULTIPART_PART_SIZE_BYTES,
+  PRESIGNED_PART_EXPIRATION_SECONDS,
+  validatePdfUploadMetadata,
+} from './pdf-upload-policy';
 
 let s3ClientInstance: S3Client | null = null;
 
@@ -65,6 +75,63 @@ export interface PresignedUploadResult {
   expiresIn: number;
 }
 
+export interface MultipartUploadInitOptions {
+  assetType?: StorageAssetType;
+  filename: string;
+  contentType: string;
+  fileSize: number;
+  moduleId?: string;
+  categoryId?: string;
+  documentId?: string;
+  volumeNumber?: number;
+}
+
+export interface MultipartUploadInitResult {
+  uploadId: string;
+  storageKey: string;
+  remoteUrl: string;
+  partSize: number;
+  totalParts: number;
+  isSimulated: boolean;
+}
+
+export interface MultipartPartUrlOptions {
+  storageKey: string;
+  uploadId: string;
+  partNumber: number;
+  expiresIn?: number;
+}
+
+export interface MultipartPartUrlResult {
+  uploadUrl: string;
+  partNumber: number;
+  expiresIn: number;
+  isSimulated: boolean;
+}
+
+export interface MultipartCompletePart {
+  partNumber: number;
+  eTag: string;
+}
+
+export interface MultipartCompleteOptions {
+  storageKey: string;
+  uploadId: string;
+  parts: MultipartCompletePart[];
+}
+
+export interface MultipartCompleteResult {
+  storageKey: string;
+  remoteUrl: string;
+  location?: string;
+  isSimulated: boolean;
+}
+
+export interface MultipartAbortOptions {
+  storageKey: string;
+  uploadId: string;
+}
+
 export function sanitizeStorageFilename(rawName: string): string {
   return rawName
     .normalize('NFKD')
@@ -107,27 +174,11 @@ export function validateUploadFile(
       };
     }
   } else if (assetType === 'pdf') {
-    const validPdfTypes = [
-      'application/pdf',
-      'application/x-pdf',
-      'application/acrobat',
-      'applications/vnd.pdf',
-      'text/pdf',
-      'application/octet-stream',
-    ];
-    if (!validPdfTypes.includes(contentType.toLowerCase())) {
-      return {
-        valid: false,
-        error: `Unsupported document format "${contentType}". Only PDF documents are supported.`,
-      };
-    }
-    const maxPdfBytes = 100 * 1024 * 1024; // 100 MB
-    if (fileSize > maxPdfBytes) {
-      return {
-        valid: false,
-        error: `PDF document exceeds maximum size limit of 100 MB.`,
-      };
-    }
+    return validatePdfUploadMetadata({
+      filename: 'document.pdf',
+      contentType,
+      fileSize,
+    });
   } else if (assetType === 'branding') {
     const validImageTypes = [
       'image/png',
@@ -160,7 +211,7 @@ export function validateUploadFile(
  * - pdf:   pdf/{moduleId}/{documentId}/volume-{volumeNumber}.pdf
  * - branding: branding/{type}/{timestamp}-{filename}
  */
-export function buildStorageKey(options: PresignedUploadOptions): string {
+export function buildStorageKey(options: PresignedUploadOptions | MultipartUploadInitOptions): string {
   const sanitized = sanitizeStorageFilename(options.filename);
   const timestamp = Date.now();
   const assetType = options.assetType || 'audio';
@@ -173,7 +224,7 @@ export function buildStorageKey(options: PresignedUploadOptions): string {
   }
 
   if (assetType === 'branding') {
-    const type = options.brandingType || 'general';
+    const type = (options as PresignedUploadOptions).brandingType || 'general';
     return `branding/${type}/${timestamp}-${sanitized}`;
   }
 
@@ -256,6 +307,241 @@ export async function createPresignedUploadUrl(
 }
 
 /**
+ * Initializes a multipart upload in Cloudflare R2 / S3.
+ * Returns an uploadId and the server-controlled storage key.
+ */
+export async function createMultipartUpload(
+  options: MultipartUploadInitOptions
+): Promise<MultipartUploadInitResult> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+  const storageKey = buildStorageKey(options);
+  const partSize = MULTIPART_PART_SIZE_BYTES;
+  const totalParts = Math.max(1, Math.ceil(options.fileSize / partSize));
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    // Simulated local storage fallback
+    const uploadId = `sim-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+    const localDir = path.join(process.cwd(), '.uploads', `multipart_${uploadId}`);
+    try {
+      fs.mkdirSync(localDir, { recursive: true });
+    } catch (err) {
+      console.warn('[Storage Multipart] Could not create local simulated multipart directory:', err);
+    }
+
+    const realDownloadUrl = getPublicDownloadUrl(storageKey, options.filename);
+
+    return {
+      uploadId,
+      storageKey,
+      remoteUrl: realDownloadUrl,
+      partSize,
+      totalParts,
+      isSimulated: true,
+    };
+  }
+
+  const publicBase = env.STORAGE_PUBLIC_BASE_URL
+    ? env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')
+    : 'https://cdn.sheikhzabur.com';
+
+  const remoteUrl = `${publicBase}/${storageKey}`;
+
+  const command = new CreateMultipartUploadCommand({
+    Bucket: env.STORAGE_BUCKET_NAME,
+    Key: storageKey,
+    ContentType: options.contentType,
+    Metadata: {
+      'original-filename': encodeURIComponent(options.filename),
+      'asset-type': options.assetType || 'pdf',
+      'module-id': options.moduleId || '',
+      'document-id': options.documentId || '',
+      'volume-number': String(options.volumeNumber || 1),
+    },
+  });
+
+  const res = await client.send(command);
+
+  if (!res.UploadId) {
+    throw new Error('Storage provider did not return an UploadId for multipart initialization.');
+  }
+
+  return {
+    uploadId: res.UploadId,
+    storageKey,
+    remoteUrl,
+    partSize,
+    totalParts,
+    isSimulated: false,
+  };
+}
+
+/**
+ * Generates a presigned URL for an individual upload part in Cloudflare R2 / S3.
+ */
+export async function getMultipartUploadPartUrl(
+  options: MultipartPartUrlOptions
+): Promise<MultipartPartUrlResult> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+  const expiresIn = options.expiresIn || PRESIGNED_PART_EXPIRATION_SECONDS;
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    // Simulated local storage fallback URL
+    const search = new URLSearchParams({
+      uploadId: options.uploadId,
+      partNumber: String(options.partNumber),
+    });
+    return {
+      uploadUrl: `/api/admin/uploads/mock-part?${search.toString()}`,
+      partNumber: options.partNumber,
+      expiresIn,
+      isSimulated: true,
+    };
+  }
+
+  const command = new UploadPartCommand({
+    Bucket: env.STORAGE_BUCKET_NAME,
+    Key: options.storageKey,
+    UploadId: options.uploadId,
+    PartNumber: options.partNumber,
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+
+  return {
+    uploadUrl,
+    partNumber: options.partNumber,
+    expiresIn,
+    isSimulated: false,
+  };
+}
+
+/**
+ * Completes a multipart upload in Cloudflare R2 / S3 after all parts are uploaded.
+ * Parts are validated and sorted by PartNumber in ascending order as strictly required by S3.
+ */
+export async function completeMultipartUpload(
+  options: MultipartCompleteOptions
+): Promise<MultipartCompleteResult> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+
+  if (!options.parts || options.parts.length === 0) {
+    throw new Error('Cannot complete multipart upload without parts.');
+  }
+
+  // S3 requires parts sorted strictly ascending by PartNumber
+  const sortedParts = [...options.parts].sort((a, b) => a.partNumber - b.partNumber);
+
+  // Normalize ETags (must be enclosed in double quotes for AWS SDK / S3 API)
+  const formattedParts = sortedParts.map((p) => {
+    let tag = p.eTag.trim();
+    if (!tag.startsWith('"')) tag = `"${tag}`;
+    if (!tag.endsWith('"')) tag = `${tag}"`;
+    return {
+      PartNumber: p.partNumber,
+      ETag: tag,
+    };
+  });
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    // Simulated local storage fallback: merge parts into single destination file
+    const safeKey = options.storageKey.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const localDest = path.join(process.cwd(), '.uploads', safeKey);
+    const localDir = path.join(process.cwd(), '.uploads', `multipart_${options.uploadId}`);
+
+    try {
+      fs.mkdirSync(path.dirname(localDest), { recursive: true });
+      const buffers: Buffer[] = [];
+
+      for (const p of sortedParts) {
+        const partFile = path.join(localDir, `part_${p.partNumber}`);
+        if (fs.existsSync(partFile)) {
+          buffers.push(fs.readFileSync(partFile));
+        }
+      }
+
+      fs.writeFileSync(localDest, Buffer.concat(buffers));
+
+      // Clean up simulated part directory
+      fs.rmSync(localDir, { recursive: true, force: true });
+    } catch (err) {
+      console.warn('[Storage Multipart] Failed to merge simulated local parts:', err);
+    }
+
+    const realDownloadUrl = getPublicDownloadUrl(options.storageKey);
+
+    return {
+      storageKey: options.storageKey,
+      remoteUrl: realDownloadUrl,
+      isSimulated: true,
+    };
+  }
+
+  const publicBase = env.STORAGE_PUBLIC_BASE_URL
+    ? env.STORAGE_PUBLIC_BASE_URL.replace(/\/+$/, '')
+    : 'https://cdn.sheikhzabur.com';
+
+  const remoteUrl = `${publicBase}/${options.storageKey}`;
+
+  const command = new CompleteMultipartUploadCommand({
+    Bucket: env.STORAGE_BUCKET_NAME,
+    Key: options.storageKey,
+    UploadId: options.uploadId,
+    MultipartUpload: {
+      Parts: formattedParts,
+    },
+  });
+
+  const res = await client.send(command);
+
+  return {
+    storageKey: options.storageKey,
+    remoteUrl,
+    location: res.Location,
+    isSimulated: false,
+  };
+}
+
+/**
+ * Aborts a multipart upload in Cloudflare R2 / S3 and deletes uploaded parts.
+ */
+export async function abortMultipartUpload(
+  options: MultipartAbortOptions
+): Promise<boolean> {
+  const env = getServerEnv();
+  const client = getStorageClient();
+
+  if (!client || !env.STORAGE_BUCKET_NAME) {
+    // Simulated local storage fallback: delete part directory
+    try {
+      const localDir = path.join(process.cwd(), '.uploads', `multipart_${options.uploadId}`);
+      if (fs.existsSync(localDir)) {
+        fs.rmSync(localDir, { recursive: true, force: true });
+      }
+      return true;
+    } catch (err) {
+      console.warn('[Storage Multipart] Failed to cleanup simulated local parts:', err);
+      return false;
+    }
+  }
+
+  try {
+    const command = new AbortMultipartUploadCommand({
+      Bucket: env.STORAGE_BUCKET_NAME,
+      Key: options.storageKey,
+      UploadId: options.uploadId,
+    });
+    await client.send(command);
+    return true;
+  } catch (err) {
+    console.error(`[Storage Multipart] Failed to abort multipart upload ${options.uploadId}:`, err);
+    return false;
+  }
+}
+
+/**
  * Inspects uploaded object headers in storage bucket or local storage directory
  */
 export async function verifyUploadedObject(
@@ -282,12 +568,21 @@ export async function verifyUploadedObject(
     }
   }
 
-  // Local storage mode fallback check (.uploads directory)
+  // Local storage mode fallback check (.uploads directory or public directory)
   try {
     const safeKey = storageKey.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const localPath = path.join(process.cwd(), '.uploads', safeKey);
-    if (fs.existsSync(localPath)) {
-      const stat = fs.statSync(localPath);
+    const localUploadsPath = path.join(process.cwd(), '.uploads', safeKey);
+    if (fs.existsSync(localUploadsPath)) {
+      const stat = fs.statSync(localUploadsPath);
+      return {
+        size: stat.size,
+        contentType: 'application/pdf',
+      };
+    }
+
+    const localPublicPath = path.join(process.cwd(), 'public', storageKey);
+    if (fs.existsSync(localPublicPath)) {
+      const stat = fs.statSync(localPublicPath);
       return {
         size: stat.size,
         contentType: 'application/pdf',
