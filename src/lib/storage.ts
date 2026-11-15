@@ -25,7 +25,13 @@ let s3ClientInstance: S3Client | null = null;
 export function getStorageClient(): S3Client | null {
   const env = getServerEnv();
 
-  if (!env.STORAGE_ACCESS_KEY_ID || !env.STORAGE_SECRET_ACCESS_KEY || !env.STORAGE_BUCKET_NAME) {
+  if (
+    !env.STORAGE_ACCESS_KEY_ID ||
+    !env.STORAGE_SECRET_ACCESS_KEY ||
+    !env.STORAGE_BUCKET_NAME ||
+    env.STORAGE_ACCESS_KEY_ID.includes('your-r2') ||
+    (env.STORAGE_ENDPOINT && (env.STORAGE_ENDPOINT.includes('<') || env.STORAGE_ENDPOINT.includes('>')))
+  ) {
     return null;
   }
 
@@ -49,7 +55,9 @@ export function isStorageConfigured(): boolean {
   return Boolean(
     env.STORAGE_BUCKET_NAME &&
     env.STORAGE_ACCESS_KEY_ID &&
-    env.STORAGE_SECRET_ACCESS_KEY
+    env.STORAGE_SECRET_ACCESS_KEY &&
+    !env.STORAGE_ACCESS_KEY_ID.includes('your-r2') &&
+    !(env.STORAGE_ENDPOINT && (env.STORAGE_ENDPOINT.includes('<') || env.STORAGE_ENDPOINT.includes('>')))
   );
 }
 

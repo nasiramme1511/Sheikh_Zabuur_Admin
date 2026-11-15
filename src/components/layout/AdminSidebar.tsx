@@ -3,25 +3,38 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { APP_NAVIGATION, APP_METADATA } from '@/config/navigation';
+import { useMobileNav } from '@/contexts/MobileNavContext';
 
-export function AdminSidebar() {
+function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
       {/* Brand Header */}
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-200 dark:border-slate-800">
-        <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
-          <Sparkles className="w-5 h-5 text-amber-300" />
+      <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-sm">
+            <Sparkles className="w-5 h-5 text-amber-300" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-sm leading-tight text-slate-900 dark:text-slate-100">
+              {APP_METADATA.name}
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{APP_METADATA.subtitle}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-semibold text-sm leading-tight text-slate-900 dark:text-slate-100">
-            {APP_METADATA.name}
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{APP_METADATA.subtitle}</p>
-        </div>
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            title="Close navigation menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation Links */}
@@ -38,6 +51,7 @@ export function AdminSidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onClose}
               className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-md transition-colors ${
                 isActive
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
@@ -73,6 +87,36 @@ export function AdminSidebar() {
           </p>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export function AdminSidebar() {
+  const { isOpen, close } = useMobileNav();
+
+  return (
+    <>
+      {/* Desktop Sidebar (hidden on mobile, visible on md and up) */}
+      <aside className="hidden md:flex w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Drawer (visible only when toggled on mobile) */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={close}
+            aria-hidden="true"
+          />
+
+          {/* Slide-over Drawer */}
+          <aside className="relative z-50 w-72 max-w-[85vw] h-full shadow-2xl flex flex-col shrink-0 animate-in slide-in-from-left duration-200">
+            <SidebarContent onClose={close} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,9 +1,10 @@
 'use client';
 
 import { APP_METADATA } from '@/config/navigation';
-import { Activity, Loader2, LogOut, ShieldCheck, User } from 'lucide-react';
+import { Activity, Loader2, LogOut, Menu, ShieldCheck, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useMobileNav } from '@/contexts/MobileNavContext';
 
 interface AuthUserData {
   id: string;
@@ -16,6 +17,7 @@ interface AuthUserData {
 
 export function AdminHeader() {
   const router = useRouter();
+  const { toggle: toggleMobileNav } = useMobileNav();
   const [healthStatus, setHealthStatus] = useState<'checking' | 'ok' | 'degraded' | 'error'>(
     'checking'
   );
@@ -67,12 +69,20 @@ export function AdminHeader() {
   }
 
   return (
-    <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-3">
-        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+    <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 md:px-6 flex items-center justify-between shrink-0">
+      <div className="flex items-center gap-2.5 md:gap-3">
+        <button
+          onClick={toggleMobileNav}
+          className="md:hidden p-1.5 -ml-1 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title="Toggle Navigation Menu"
+          aria-label="Toggle Navigation Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <h2 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[180px] sm:max-w-none">
           {APP_METADATA.fullTitle}
         </h2>
-        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+        <span className="hidden sm:inline-block text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
           v{APP_METADATA.version}
         </span>
       </div>
