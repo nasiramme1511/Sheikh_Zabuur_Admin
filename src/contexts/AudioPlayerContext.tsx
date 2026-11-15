@@ -46,6 +46,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentTrackRef = useRef<ActiveTrack | null>(null);
+  const attemptedProxyFallbackRef = useRef<boolean>(false);
+
+  // Synchronize ref with state
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  // Helper to determine optimal initial audio source
+  const getAudioSourceUrl = useCallback((track: ActiveTrack, forceProxy = false): string => {
+    if (track.localBlobUrl) return track.localBlobUrl;
+    if (forceProxy) {
+      return `/api/v1/audio/stream?url=${encodeURIComponent(track.remoteUrl)}`;
+    }
+    // If running under HTTPS and remoteUrl is insecure HTTP, route through proxy to prevent mixed content
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      track.remoteUrl.startsWith('http://')
+    ) {
+      return `/api/v1/audio/stream?url=${encodeURIComponent(track.remoteUrl)}`;
+    }
+    return track.remoteUrl;
+  }, []);
 
   // Initialize audio instance on client
   useEffect(() => {
@@ -76,9 +100,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
 
     const onError = () => {
+      // If direct playback encountered an error, attempt server stream proxy fallback before showing error
+      const track = currentTrackRef.current;
+      if (track?.remoteUrl && !track.localBlobUrl && !attemptedProxyFallbackRef.current) {
+        attemptedProxyFallbackRef.current = true;
+        console.warn('[AudioPlayer] Audio load error, retrying via server stream proxy...');
+        audio.src = `/api/v1/audio/stream?url=${encodeURIComponent(track.remoteUrl)}`;
+        audio.play().catch((err: unknown) => {
+          const errorName = err instanceof Error ? err.name : '';
+          if (errorName === 'AbortError') return;
+          setIsLoading(false);
+          setIsPlaying(false);
+          setPlaybackError(
+            track.remoteUrl.includes('cdn.sheikhzabur.com')
+              ? 'Cloud storage is currently in Dev Simulation Mode. Set Cloudflare R2 credentials or STORAGE_PUBLIC_BASE_URL in .env to stream uploaded files.'
+              : 'Unable to stream audio track from remote server.'
+          );
+        });
+        return;
+      }
+
       setIsLoading(false);
       setIsPlaying(false);
-      console.warn('[AudioPlayer] Audio resource failed to load (e.g. unconfigured dev CDN URL)');
+      console.warn('[AudioPlayer] Audio resource failed to load');
       setPlaybackError(
         'Unable to load audio resource. In dev simulation mode, newly uploaded files require configured cloud storage or local file preview.'
       );
@@ -106,47 +150,73 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const playTrack = useCallback((track: ActiveTrack) => {
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
+  const playTrack = useCallback(
+    (track: ActiveTrack) => {
+      if (!audioRef.current) return;
+      const audio = audioRef.current;
 
-    // Toggle if same track clicked
-    if (currentTrack?.id === track.id) {
-      if (audio.paused) {
-        setPlaybackError(null);
-        audio.play().catch((err: unknown) => {
-          console.warn('[AudioPlayer] resume failed gracefully:', err);
-          setPlaybackError('Unable to resume playback of this audio track.');
-        });
-      } else {
-        audio.pause();
+      // Toggle if same track clicked
+      if (currentTrack?.id === track.id) {
+        if (audio.paused) {
+          setPlaybackError(null);
+          audio.play().catch((err: unknown) => {
+            const errorName = err instanceof Error ? err.name : '';
+            if (errorName === 'AbortError') return;
+            console.warn('[AudioPlayer] resume failed gracefully:', err);
+            setPlaybackError('Unable to resume playback of this audio track.');
+          });
+        } else {
+          audio.pause();
+        }
+        return;
       }
-      return;
-    }
 
-    setPlaybackError(null);
-    setCurrentTrack(track);
-    setIsLoading(true);
+      setPlaybackError(null);
+      setCurrentTrack(track);
+      setIsLoading(true);
+      attemptedProxyFallbackRef.current = false;
 
-    // Prefer local in-memory blob for staged/just-uploaded files if available
-    const audioSource = track.localBlobUrl || track.remoteUrl;
-    audio.src = audioSource;
-    audio.currentTime = 0;
-    audio.playbackRate = playbackRate;
-    audio.volume = volume;
+      const playWithFallback = (sourceUrl: string, isFallback = false) => {
+        audio.src = sourceUrl;
+        try {
+          if (audio.currentTime > 0) {
+            audio.currentTime = 0;
+          }
+        } catch {}
+        audio.playbackRate = playbackRate;
+        audio.volume = volume;
 
-    audio.play().catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn('[AudioPlayer] Playback was not supported or failed gracefully:', msg);
-      setIsLoading(false);
-      setIsPlaying(false);
-      setPlaybackError(
-        track.remoteUrl.includes('cdn.sheikhzabur.com')
-          ? 'Cloud storage is currently in Dev Simulation Mode. Set Cloudflare R2 credentials or STORAGE_PUBLIC_BASE_URL in .env to stream uploaded files.'
-          : 'Unable to stream audio track from remote server.'
-      );
-    });
-  }, [currentTrack?.id, playbackRate, volume]);
+        audio.play().catch((err: unknown) => {
+          const errorName = err instanceof Error ? err.name : '';
+          // AbortError is benign (user paused or switched tracks before buffer completed)
+          if (errorName === 'AbortError') return;
+
+          // If direct URL failed and hasn't tried proxy yet, fallback to server stream proxy
+          if (!isFallback && track.remoteUrl && !track.localBlobUrl) {
+            console.warn('[AudioPlayer] Direct playback failed, falling back to server stream proxy...');
+            attemptedProxyFallbackRef.current = true;
+            const proxyUrl = `/api/v1/audio/stream?url=${encodeURIComponent(track.remoteUrl)}`;
+            playWithFallback(proxyUrl, true);
+            return;
+          }
+
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn('[AudioPlayer] Playback was not supported or failed gracefully:', msg);
+          setIsLoading(false);
+          setIsPlaying(false);
+          setPlaybackError(
+            track.remoteUrl.includes('cdn.sheikhzabur.com')
+              ? 'Cloud storage is currently in Dev Simulation Mode. Set Cloudflare R2 credentials or STORAGE_PUBLIC_BASE_URL in .env to stream uploaded files.'
+              : 'Unable to stream audio track from remote server.'
+          );
+        });
+      };
+
+      const initialSource = getAudioSourceUrl(track);
+      playWithFallback(initialSource, initialSource.startsWith('/api/'));
+    },
+    [currentTrack?.id, getAudioSourceUrl, playbackRate, volume]
+  );
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentTrack) return;
